@@ -146,7 +146,7 @@ const MobileNav = () => {
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
-      <SheetTrigger asChild>
+      <SheetTrigger>
         <button
           aria-label="Open navigation menu"
           className="md:hidden h-10 w-10 flex items-center justify-center rounded-lg hover:bg-accent transition-colors"
