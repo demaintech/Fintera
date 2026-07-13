@@ -111,69 +111,69 @@ const mortalityChartConfig = {
 
 const page = () => {
   return (
-    <div className="space-y-6">
-      <section className="rounded-3xl border border-border/20 bg-linear-to-br from-primary/10 via-background to-background p-6 shadow-sm">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+    <div className="space-y-4 sm:space-y-6">
+      <section className="rounded-2xl sm:rounded-3xl border border-border/20 bg-linear-to-br from-primary/10 via-background to-background p-4 sm:p-6 shadow-sm">
+        <div className="flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-background/70 px-3 py-1 text-sm font-medium text-primary">
+            <div className="mb-2 sm:mb-3 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-background/70 px-3 py-1 text-xs sm:text-sm font-medium text-primary">
               <Activity className="h-4 w-4" />
               Aquaculture Ops Overview
             </div>
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight">
               Manage your fish farm performance at a glance
             </h1>
-            <p className="mt-3 text-sm text-foreground/70 sm:text-base">
+            <p className="mt-2 sm:mt-3 text-xs sm:text-sm lg:text-base text-foreground/70">
               Track revenue, stock health, and day-to-day operations with a clear, data-driven dashboard.
             </p>
           </div>
-          <div className="rounded-2xl border border-border/20 bg-background/80 px-4 py-3 text-sm shadow-sm">
+          <div className="rounded-lg sm:rounded-2xl border border-border/20 bg-background/80 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm shadow-sm">
             <p className="text-foreground/60">This week</p>
             <p className="mt-1 text-xl font-semibold">+18.2% efficiency</p>
           </div>
         </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <section className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
         {metrics.map((item) => {
           const Icon = item.icon;
           return (
             <div
               key={item.title}
-              className="rounded-2xl border border-border/20 bg-background p-5 shadow-sm transition hover:-translate-y-0.5"
+              className="rounded-lg sm:rounded-2xl border border-border/20 bg-background p-3 sm:p-5 shadow-sm transition hover:-translate-y-0.5"
             >
-              <div className={`rounded-xl bg-linear-to-br ${item.accent} p-3`}>
-                <Icon className="h-6 w-6 text-foreground" />
+              <div className={`rounded-lg sm:rounded-xl bg-linear-to-br ${item.accent} p-2 sm:p-3`}>
+                <Icon className="h-5 sm:h-6 w-5 sm:w-6 text-foreground" />
               </div>
-              <div className="mt-4 flex items-start justify-between gap-3">
+              <div className="mt-3 sm:mt-4 flex items-start justify-between gap-2 sm:gap-3">
                 <div>
-                  <p className="text-sm text-foreground/60">{item.title}</p>
-                  <p className="mt-1 text-2xl font-semibold">{item.value}</p>
+                  <p className="text-xs sm:text-sm text-foreground/60">{item.title}</p>
+                  <p className="mt-0.5 sm:mt-1 text-lg sm:text-2xl font-semibold">{item.value}</p>
                 </div>
-                <div className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-600">
+                <div className="rounded-full bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-600">
                   <span className="inline-flex items-center gap-1">
                     {item.change} <ArrowUpRight className="h-3.5 w-3.5" />
                   </span>
                 </div>
               </div>
-              <p className="mt-2 text-sm text-foreground/60">{item.description}</p>
+              <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-foreground/60">{item.description}</p>
             </div>
           );
         })}
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[1.35fr_0.95fr]">
-        <div className="rounded-3xl border border-border/20 bg-background p-6 shadow-sm">
-          <div className="flex items-center justify-between">
+      <section className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-[1fr] lg:grid-cols-[1.35fr_0.95fr]">
+        <div className="rounded-2xl sm:rounded-3xl border border-border/20 bg-background p-4 sm:p-6 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
             <div>
-              <h2 className="text-xl font-semibold">Revenue & Sales Trend</h2>
-              <p className="text-sm text-foreground/60">Performance over the last 6 months.</p>
+              <h2 className="text-lg sm:text-xl font-semibold">Revenue & Sales Trend</h2>
+              <p className="text-xs sm:text-sm text-foreground/60 mt-0.5">Performance over the last 6 months.</p>
             </div>
-            <div className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
+            <div className="rounded-full bg-primary/10 px-3 py-1 text-xs sm:text-sm font-medium text-primary whitespace-nowrap">
               Live trend
             </div>
           </div>
 
-          <ChartContainer config={chartConfig} className="mt-6 min-h-75 w-full">
+          <ChartContainer config={chartConfig} className="mt-4 sm:mt-6 min-h-60 sm:min-h-75 w-full">
             <AreaChart
               accessibilityLayer
               data={chartData}
@@ -216,19 +216,19 @@ const page = () => {
           </ChartContainer>
         </div>
 
-        <div className="space-y-6">
-          <div className="rounded-3xl border border-border/20 bg-background p-6 shadow-sm">
-            <div className="flex items-center justify-between">
+        <div className="space-y-4 sm:space-y-6">
+          <div className="rounded-2xl sm:rounded-3xl border border-border/20 bg-background p-4 sm:p-6 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
               <div>
-                <h2 className="text-xl font-semibold">Mortality Rate</h2>
-                <p className="text-sm text-foreground/60">Current forecast and response trend.</p>
+                <h2 className="text-lg sm:text-xl font-semibold">Mortality Rate</h2>
+                <p className="text-xs sm:text-sm text-foreground/60 mt-0.5">Current forecast and response trend.</p>
               </div>
-              <div className="rounded-full bg-rose-500/10 px-3 py-1 text-sm font-medium text-rose-600">
+              <div className="rounded-full bg-rose-500/10 px-3 py-1 text-xs sm:text-sm font-medium text-rose-600 whitespace-nowrap">
                 2.4%
               </div>
             </div>
 
-            <ChartContainer config={mortalityChartConfig} className="mt-4 min-h-50 w-full">
+            <ChartContainer config={mortalityChartConfig} className="mt-3 sm:mt-4 min-h-40 sm:min-h-50 w-full">
               <LineChart
                 accessibilityLayer
                 data={mortalityChartData}
@@ -267,13 +267,13 @@ const page = () => {
             </ChartContainer>
           </div>
 
-          <div className="rounded-3xl border border-border/20 bg-background p-6 shadow-sm">
-            <h2 className="text-xl font-semibold">Farm Health Snapshot</h2>
-            <div className="mt-5 grid gap-3">
+          <div className="rounded-2xl sm:rounded-3xl border border-border/20 bg-background p-4 sm:p-6 shadow-sm">
+            <h2 className="text-lg sm:text-xl font-semibold">Farm Health Snapshot</h2>
+            <div className="mt-3 sm:mt-5 grid gap-2 sm:gap-3">
               {activities.map((activity) => (
-                <div key={activity.label} className="rounded-2xl bg-muted/40 p-4">
-                  <p className="text-sm text-foreground/60">{activity.label}</p>
-                  <p className="mt-1 text-lg font-semibold">{activity.value}</p>
+                <div key={activity.label} className="rounded-lg sm:rounded-2xl bg-muted/40 p-3 sm:p-4">
+                  <p className="text-xs sm:text-sm text-foreground/60">{activity.label}</p>
+                  <p className="mt-0.5 sm:mt-1 text-base sm:text-lg font-semibold">{activity.value}</p>
                 </div>
               ))}
             </div>
@@ -281,39 +281,39 @@ const page = () => {
         </div>
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-3">
-        <div className="rounded-3xl border border-border/20 bg-background p-6 shadow-sm">
-          <h2 className="text-xl font-semibold">Upcoming Tasks</h2>
-          <ul className="mt-5 space-y-3 text-sm text-foreground/70">
-            <li className="rounded-xl border border-border/30 bg-muted/30 px-4 py-3">Feed delivery scheduled for tomorrow</li>
-            <li className="rounded-xl border border-border/30 bg-muted/30 px-4 py-3">Water quality check due in 2 hours</li>
-            <li className="rounded-xl border border-border/30 bg-muted/30 px-4 py-3">Harvest planning review at 4 PM</li>
+      <section className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="rounded-2xl sm:rounded-3xl border border-border/20 bg-background p-4 sm:p-6 shadow-sm">
+          <h2 className="text-lg sm:text-xl font-semibold">Upcoming Tasks</h2>
+          <ul className="mt-3 sm:mt-5 space-y-2 sm:space-y-3 text-xs sm:text-sm text-foreground/70">
+            <li className="rounded-lg sm:rounded-xl border border-border/30 bg-muted/30 px-3 sm:px-4 py-2 sm:py-3">Feed delivery scheduled for tomorrow</li>
+            <li className="rounded-lg sm:rounded-xl border border-border/30 bg-muted/30 px-3 sm:px-4 py-2 sm:py-3">Water quality check due in 2 hours</li>
+            <li className="rounded-lg sm:rounded-xl border border-border/30 bg-muted/30 px-3 sm:px-4 py-2 sm:py-3">Harvest planning review at 4 PM</li>
           </ul>
         </div>
 
-        <div className="rounded-3xl border border-border/20 bg-background p-6 shadow-sm">
-          <h2 className="text-xl font-semibold">Pond Status</h2>
-          <div className="mt-5 space-y-3 text-sm">
-            <div className="flex items-center justify-between rounded-xl border border-border/30 bg-muted/30 px-4 py-3">
+        <div className="rounded-2xl sm:rounded-3xl border border-border/20 bg-background p-4 sm:p-6 shadow-sm">
+          <h2 className="text-lg sm:text-xl font-semibold">Pond Status</h2>
+          <div className="mt-3 sm:mt-5 space-y-2 sm:space-y-3 text-xs sm:text-sm">
+            <div className="flex items-center justify-between rounded-lg sm:rounded-xl border border-border/30 bg-muted/30 px-3 sm:px-4 py-2 sm:py-3">
               <span>North Pond</span>
               <span className="font-medium text-emerald-600">Healthy</span>
             </div>
-            <div className="flex items-center justify-between rounded-xl border border-border/30 bg-muted/30 px-4 py-3">
+            <div className="flex items-center justify-between rounded-lg sm:rounded-xl border border-border/30 bg-muted/30 px-3 sm:px-4 py-2 sm:py-3">
               <span>South Pond</span>
               <span className="font-medium text-amber-600">Watch</span>
             </div>
-            <div className="flex items-center justify-between rounded-xl border border-border/30 bg-muted/30 px-4 py-3">
+            <div className="flex items-center justify-between rounded-lg sm:rounded-xl border border-border/30 bg-muted/30 px-3 sm:px-4 py-2 sm:py-3">
               <span>East Pond</span>
               <span className="font-medium text-rose-600">Attention</span>
             </div>
           </div>
         </div>
 
-        <div className="rounded-3xl border border-border/20 bg-background p-6 shadow-sm">
-          <h2 className="text-xl font-semibold">Feed Efficiency</h2>
-          <div className="mt-5 rounded-2xl bg-muted/30 p-4 text-center">
-            <p className="text-4xl font-semibold text-primary">91%</p>
-            <p className="mt-2 text-sm text-foreground/60">Conversion efficiency this month</p>
+        <div className="rounded-2xl sm:rounded-3xl border border-border/20 bg-background p-4 sm:p-6 shadow-sm">
+          <h2 className="text-lg sm:text-xl font-semibold">Feed Efficiency</h2>
+          <div className="mt-3 sm:mt-5 rounded-lg sm:rounded-2xl bg-muted/30 p-4 sm:p-4 text-center">
+            <p className="text-3xl sm:text-4xl font-semibold text-primary">91%</p>
+            <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-foreground/60">Conversion efficiency this month</p>
           </div>
         </div>
       </section>

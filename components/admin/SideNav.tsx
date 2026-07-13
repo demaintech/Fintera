@@ -136,7 +136,7 @@ const SideNav = () => {
   };
 
   return (
-    <aside className="hidden w-72 flex-col border-r border-border/40 bg-background md:flex">
+    <aside className="fixed left-0 top-0 hidden h-screen w-72 flex-col border-r border-border/40 bg-white dark:bg-slate-950 md:flex">
       <div className="flex h-20 items-center border-b border-border/40 px-6">
         <Link href="/" className="flex items-center gap-2">
           <Fish className="h-7 w-7 text-primary" />
@@ -166,8 +166,8 @@ const SideNav = () => {
                       onClick={() => toggleDropdown(item.label)}
                       className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-all ${
                         isActive
-                          ? "bg-slate-900 text-white shadow-sm ring-1 ring-slate-700 dark:bg-slate-700"
-                          : "bg-gray-50 text-foreground/70 hover:bg-slate-100 hover:text-foreground"
+                          ? "bg-slate-900 text-white shadow-sm ring-1 ring-slate-700 dark:bg-blue-600 dark:text-white dark:ring-blue-700"
+                          : "bg-white text-foreground/70 hover:bg-slate-100 hover:text-foreground dark:bg-slate-900/40 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
                       }`}
                     >
                       <span className="flex items-center gap-3">
@@ -187,8 +187,8 @@ const SideNav = () => {
                               href={child.href}
                               className={`block rounded-md px-3 py-2 text-sm transition-all ${
                                 childActive
-                                  ? "bg-slate-900 text-white font-medium dark:bg-slate-700"
-                                  : "bg-gray-50 text-foreground/60 hover:bg-slate-100 hover:text-foreground"
+                                  ? "bg-slate-900 text-white font-medium dark:bg-blue-600 dark:text-white"
+                                  : "bg-white text-foreground/60 hover:bg-slate-100 hover:text-foreground dark:bg-slate-900/40 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
                               }`}
                             >
                               {child.label}
@@ -207,8 +207,8 @@ const SideNav = () => {
                   href={item.href}
                   className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
                     isActive
-                      ? "bg-slate-900 text-white shadow-sm ring-1 ring-slate-700 dark:bg-slate-700"
-                      : "bg-gray-50 text-foreground/70 hover:bg-slate-100 hover:text-foreground"
+                      ? "bg-slate-900 text-white shadow-sm ring-1 ring-slate-700 dark:bg-blue-600 dark:text-white dark:ring-blue-700"
+                      : "bg-white text-foreground/70 hover:bg-slate-100 hover:text-foreground dark:bg-slate-900/40 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
                   }`}
                 >
                   <item.icon className="h-5 w-5" />
