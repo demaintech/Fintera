@@ -22,6 +22,23 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Helper to decode JWT JSON web token payload on client side
+const decodeJwt = (jwtToken: string) => {
+  try {
+    const base64Url = jwtToken.split(".")[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      window.atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    return null;
+  }
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -48,41 +65,67 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
   const login = async (emailOrUsername: string, password: string) => {
-    const isEmail = emailOrUsername.includes("@");
+    const formData = new URLSearchParams();
+    formData.append("username", emailOrUsername.trim());
+    formData.append("password", password);
 
-    const payload = {
-      usernameOrEmail: emailOrUsername.trim(),
-      identifier: emailOrUsername.trim(),
-      email: isEmail ? emailOrUsername.trim() : undefined,
-      username: !isEmail ? emailOrUsername.trim() : undefined,
-      password: password,
-    };
-
-    const response = await fetch(`${apiUrl}/auth/login`, {
+    const response = await fetch(`${apiUrl}/login`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      headers: { 
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Accept": "application/json"
+      },
+      body: formData.toString(),
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      const errorMessage = data.message || data.error || "Login failed";
+      let errorMessage = "Login failed";
+      if (data && data.detail) {
+        if (typeof data.detail === "string") {
+          errorMessage = data.detail;
+        } else if (Array.isArray(data.detail) && data.detail.length > 0) {
+          errorMessage = data.detail.map((d: any) => d.msg).join(", ");
+        }
+      } else if (data && (data.message || data.error)) {
+        errorMessage = data.message || data.error;
+      }
       const error = new Error(errorMessage);
       (error as any).status = response.status;
       throw error;
     }
 
-    if (data.token) {
-      localStorage.setItem("token", data.token);
-      setToken(data.token);
-    }
-    if (data.user) {
-      localStorage.setItem("user", JSON.stringify(data.user));
-      setUser(data.user);
+    const authToken = data.access_token || data.token;
+    
+    if (!authToken) {
+      throw new Error("No authentication token received from the server");
     }
 
-    return { token: data.token, user: data.user };
+    let loggedInUser: User = {
+      id: "unknown",
+      email: emailOrUsername,
+      username: emailOrUsername,
+      role: "admin",
+    };
+
+    const decoded = decodeJwt(authToken);
+    if (decoded && decoded.sub) {
+      loggedInUser = {
+        id: decoded.sub,
+        email: decoded.sub.includes("@") ? decoded.sub : `${decoded.sub}@fintera.com`,
+        username: decoded.sub,
+        name: decoded.sub,
+        role: "admin",
+      };
+    }
+
+    localStorage.setItem("token", authToken);
+    setToken(authToken);
+    localStorage.setItem("user", JSON.stringify(loggedInUser));
+    setUser(loggedInUser);
+
+    return { token: authToken, user: loggedInUser };
   };
 
   const signup = async (name: string, email: string, password: string) => {

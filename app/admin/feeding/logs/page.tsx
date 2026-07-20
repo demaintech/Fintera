@@ -1,178 +1,161 @@
-"use client";
+'use client';
 
-import React, { useState, FormEvent, useMemo } from 'react';
-import { Package, PackageCheck, DollarSign, History, PlusCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogDescription, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MOCK_FEED_TYPES } from '@/components/types';
+import React, { useState, useMemo } from 'react';
+import { Utensils, Weight, CircleDollarSign, Calendar as CalendarIcon, Fish, Search } from 'lucide-react';
 
-type FeedStockRecord = {
+// --- Reusable UI Components ---
+
+const Card = ({ children, className }: { children: React.ReactNode, className?: string }) => (
+  <div className={`bg-white dark:bg-slate-900 border border-gray-200/80 dark:border-slate-800 rounded-xl shadow-sm ${className}`}>{children}</div>
+);
+
+const CardHeader = ({ children }: { children: React.ReactNode }) => (
+  <div className="p-4 sm:p-6 border-b border-gray-200/80 dark:border-slate-700/50 flex justify-between items-center">{children}</div>
+);
+
+const CardTitle = ({ children }: { children: React.ReactNode }) => (
+  <h3 className="text-lg font-semibold text-gray-900 dark:text-slate-50">{children}</h3>
+);
+
+const CardContent = ({ children, className }: { children: React.ReactNode, className?: string }) => (
+  <div className={`p-0 sm:p-0 ${className}`}>{children}</div>
+);
+
+const Label = ({ children, ...props }: { children: React.ReactNode } & React.LabelHTMLAttributes<HTMLLabelElement>) => (
+    <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5" {...props}>{children}</label>
+);
+
+const Input = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
+    <input
+        className="block w-full px-3 py-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+        {...props}
+    />
+);
+
+const KpiCard = ({ title, value, icon: Icon, color }: { title: string, value: string, icon: React.ElementType, color: string }) => (
+  <Card>
+    <div className="p-5">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium text-gray-500 dark:text-slate-400">{title}</p>
+        <Icon className={`w-5 h-5 ${color}`} />
+      </div>
+      <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-slate-100">{value}</p>
+    </div>
+  </Card>
+);
+
+// --- Mock Data & Types ---
+
+type FeedingLog = {
   id: string;
-  feedTypeId: string;
-  feedTypeName: string;
-  quantityKg: number;
-  purchaseDate: string;
-  costPerKg: number;
-  totalCost: number;
-  supplier: string;
-};
-
-type FeedUsageLog = {
-  id: string;
-  logDate: string;
+  date: string;
   pondName: string;
   feedTypeName: string;
   quantityKg: number;
   cost: number;
-  fedBy: string;
+  loggedBy: string;
 };
 
-const mockFeedStock: FeedStockRecord[] = [
-  { id: 'FS-001', feedTypeId: 'feed-01', feedTypeName: 'Starter Mash (45%)', quantityKg: 500, purchaseDate: '2023-11-01', costPerKg: 1.20, totalCost: 600, supplier: 'Feed Co.' },
-  { id: 'FS-002', feedTypeId: 'feed-02', feedTypeName: 'Grower Pellet (35%)', quantityKg: 1000, purchaseDate: '2023-11-01', costPerKg: 0.95, totalCost: 950, supplier: 'Aqua Feeds' },
-  { id: 'FS-003', feedTypeId: 'feed-03', feedTypeName: 'Finisher Pellet (28%)', quantityKg: 800, purchaseDate: '2023-10-20', costPerKg: 0.75, totalCost: 600, supplier: 'Feed Co.' },
+const mockFeedingLogs: FeedingLog[] = [
+  { id: 'FL-001', date: '2023-11-15', pondName: 'Breeding Pond A', feedTypeName: 'Grower Pellet (35%)', quantityKg: 15, cost: 14.25, loggedBy: 'Demain' },
+  { id: 'FL-002', date: '2023-11-15', pondName: 'Lily Pad Pond', feedTypeName: 'Starter Mash (45%)', quantityKg: 8, cost: 9.60, loggedBy: 'Jane Doe' },
+  { id: 'FL-003', date: '2023-11-14', pondName: 'Main Koi Pond', feedTypeName: 'Finisher Pellet (28%)', quantityKg: 20, cost: 15.00, loggedBy: 'Demain' },
+  { id: 'FL-004', date: '2023-11-14', pondName: 'Breeding Pond A', feedTypeName: 'Grower Pellet (35%)', quantityKg: 15, cost: 14.25, loggedBy: 'Demain' },
+  { id: 'FL-005', date: '2023-11-13', pondName: 'Quarantine Tank', feedTypeName: 'High-Protein Fry Feed', quantityKg: 0.5, cost: 1.25, loggedBy: 'Jane Doe' },
+  { id: 'FL-006', date: '2023-11-13', pondName: 'Lily Pad Pond', feedTypeName: 'Starter Mash (45%)', quantityKg: 7.5, cost: 9.00, loggedBy: 'Jane Doe' },
 ];
 
-const mockFeedUsageLogs: FeedUsageLog[] = [
-  { id: 'LOG-001', logDate: '2023-11-15', pondName: 'Pond A1', feedTypeName: 'Grower Pellet (35%)', quantityKg: 10.5, cost: 9.98, fedBy: 'John D.' },
-  { id: 'LOG-002', logDate: '2023-11-15', pondName: 'Nursery Pond N1', feedTypeName: 'High-Protein Fry Feed', quantityKg: 1.5, cost: 3.75, fedBy: 'Jane S.' },
-  { id: 'LOG-003', logDate: '2023-11-14', pondName: 'Pond A1', feedTypeName: 'Grower Pellet (35%)', quantityKg: 10.5, cost: 9.98, fedBy: 'John D.' },
-  { id: 'LOG-004', logDate: '2023-11-14', pondName: 'Pond B1 (Broodstock)', feedTypeName: 'Starter Mash (45%)', quantityKg: 3, cost: 3.60, fedBy: 'Mike R.' },
-];
+const formatCurrency = (amount: number) => amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 
 const FeedingLogsPage = () => {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [formState, setFormState] = useState({ feedTypeId: '', quantityKg: '', totalCost: '', purchaseDate: '', supplier: '' });
-  const [error, setError] = useState('');
+  const [dateFrom, setDateFrom] = useState('2023-11-01');
+  const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0]);
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    setError('');
-    if (Object.values(formState).some(v => !v)) {
-      setError('Please fill all fields.');
-      return;
-    }
-    console.log('New Feed Stock:', formState);
-    // API call to save new stock would go here
-    setIsDialogOpen(false);
-  };
+  const { totalFeedUsed, totalCostOfFeedUsed, mostConsumedFeed } = useMemo(() => {
+    const filteredLogs = mockFeedingLogs.filter(log => log.date >= dateFrom && log.date <= dateTo);
+    
+    const totalFeedUsed = filteredLogs.reduce((sum, log) => sum + log.quantityKg, 0);
+    const totalCostOfFeedUsed = filteredLogs.reduce((sum, log) => sum + log.cost, 0);
 
-  const { totalAvailableKg, totalAvailableValue, totalUsedKg, totalUsedValue } = useMemo(() => {
-    const totalAvailableKg = mockFeedStock.reduce((sum, s) => sum + s.quantityKg, 0);
-    const totalAvailableValue = mockFeedStock.reduce((sum, s) => sum + s.totalCost, 0);
-    const totalUsedKg = mockFeedUsageLogs.reduce((sum, log) => sum + log.quantityKg, 0);
-    const totalUsedValue = mockFeedUsageLogs.reduce((sum, log) => sum + log.cost, 0);
-    return { totalAvailableKg, totalAvailableValue, totalUsedKg, totalUsedValue };
-  }, []);
+    const feedConsumption: { [key: string]: number } = {};
+    filteredLogs.forEach(log => {
+      feedConsumption[log.feedTypeName] = (feedConsumption[log.feedTypeName] || 0) + log.quantityKg;
+    });
+
+    const mostConsumedFeed = Object.keys(feedConsumption).length > 0
+      ? Object.entries(feedConsumption).reduce((a, b) => a[1] > b[1] ? a : b)[0]
+      : 'N/A';
+
+    return { totalFeedUsed, totalCostOfFeedUsed, mostConsumedFeed };
+  }, [dateFrom, dateTo]);
 
   const kpiCards = [
-    { title: "Total Feed Available", value: `${totalAvailableKg.toLocaleString()} kg`, icon: Package, color: "text-blue-600" },
-    { title: "Value of Available Feed", value: `$${totalAvailableValue.toLocaleString()}`, icon: DollarSign, color: "text-green-600" },
-    { title: "Total Feed Used (All Time)", value: `${totalUsedKg.toLocaleString()} kg`, icon: PackageCheck, color: "text-amber-600" },
-    { title: "Cost of Used Feed (All Time)", value: `$${totalUsedValue.toLocaleString()}`, icon: History, color: "text-red-600" },
+    { title: "Total Feed Used (Period)", value: `${totalFeedUsed.toFixed(1)} kg`, icon: Weight, color: "text-blue-600" },
+    { title: "Value of Feed Used", value: formatCurrency(totalCostOfFeedUsed), icon: CircleDollarSign, color: "text-green-600" },
+    { title: "Most Consumed Feed", value: mostConsumedFeed, icon: Fish, color: "text-purple-600" },
+    { title: "Avg. Daily Feed Cost", value: formatCurrency(totalCostOfFeedUsed / 30), icon: Utensils, color: "text-amber-600" },
   ];
 
   return (
-    <div className="p-4 sm:p-6 md:p-8 bg-gray-50/50 min-h-screen">
-      <header className="flex flex-col sm:flex-row justify-between sm:items-center mb-8 gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Feed Inventory & Logs</h1>
-          <p className="text-gray-600 mt-1">Track feed stock, costs, and consumption history.</p>
-        </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <PlusCircle className="w-4 h-4 mr-2" />
-              Add Feed Stock
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader><DialogTitle>Add New Feed Stock</DialogTitle><DialogDescription>Record a new purchase of feed.</DialogDescription></DialogHeader>
-            <form onSubmit={handleSubmit}>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="feedTypeId" className="text-right">
-                    Feed Type
-                  </Label>
-                  <Select onValueChange={(v: string) => setFormState((s) => ({ ...s, feedTypeId: v }))}>
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select feed" />
-                    </SelectTrigger>
-                    <SelectContent>{MOCK_FEED_TYPES.map((f) => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="quantityKg" className="text-right">Quantity (kg)</Label><Input id="quantityKg" type="number" value={formState.quantityKg} onChange={(e) => setFormState(s => ({ ...s, quantityKg: e.target.value }))} className="col-span-3" /></div>
-                <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="totalCost" className="text-right">Total Cost ($)</Label><Input id="totalCost" type="number" value={formState.totalCost} onChange={(e) => setFormState(s => ({ ...s, totalCost: e.target.value }))} className="col-span-3" /></div>
-                <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="purchaseDate" className="text-right">Purchase Date</Label><Input id="purchaseDate" type="date" value={formState.purchaseDate} onChange={(e) => setFormState(s => ({ ...s, purchaseDate: e.target.value }))} className="col-span-3" /></div>
-                <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="supplier" className="text-right">Supplier</Label><Input id="supplier" value={formState.supplier} onChange={(e) => setFormState(s => ({ ...s, supplier: e.target.value }))} className="col-span-3" /></div>
-                {error && <p className="col-span-4 text-sm text-red-600 text-center">{error}</p>}
-              </div>
-              <DialogFooter><Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button><Button type="submit">Add Stock</Button></DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+    <main className="flex-1 p-4 sm:p-6 md:p-8 bg-gray-50/50 dark:bg-slate-950">
+      <header className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-slate-50">Feeding Logs</h1>
+        <p className="text-gray-600 dark:text-slate-400 mt-1">Review historical feeding data and consumption metrics.</p>
       </header>
 
+      {/* KPI Cards */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {kpiCards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <div key={card.title} className="bg-white border rounded-xl shadow-sm p-5">
-              <div className="flex items-center justify-between"><p className="text-sm font-medium text-gray-500">{card.title}</p><Icon className={`w-5 h-5 ${card.color}`} /></div>
-              <p className="mt-2 text-3xl font-bold text-gray-900">{card.value}</p>
-            </div>
-          );
-        })}
+        {kpiCards.map((card) => (
+          <KpiCard key={card.title} title={card.title} value={card.value} icon={card.icon} color={card.color} />
+        ))}
       </section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-1 bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Current Inventory</h2>
-          <ul className="space-y-4">
-            {mockFeedStock.map(stock => (
-              <li key={stock.id} className="border-b pb-3 last:border-b-0">
-                <p className="font-semibold">{stock.feedTypeName}</p>
-                <div className="flex justify-between text-sm text-gray-600 mt-1">
-                  <span>{stock.quantityKg.toLocaleString()} kg</span>
-                  <span className="font-medium">${stock.totalCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="lg:col-span-2 bg-white rounded-lg shadow-md overflow-x-auto">
-          <h2 className="text-xl font-bold text-gray-900 p-6 border-b">Feed Usage Logs</h2>
-          <table className="min-w-full divide-y">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pond</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Feed Type</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fed By</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y">
-              {mockFeedUsageLogs.map((log) => (
-                <tr key={log.id} className="hover:bg-gray-50/50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{log.logDate}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{log.pondName}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{log.feedTypeName}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{log.quantityKg} kg</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${log.cost.toFixed(2)}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{log.fedBy}</td>
+      {/* Log Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Log History</CardTitle>
+          <div className="flex items-center gap-4">
+            <div className="relative w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input placeholder="Search by pond or feed..." className="pl-10 h-9" />
+            </div>
+            <div className="flex items-center gap-2">
+              <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="h-9" />
+              <span className="text-gray-500">to</span>
+              <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} min={dateFrom} className="h-9" />
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left text-gray-600 dark:text-slate-300">
+              <thead className="text-xs text-gray-700 dark:text-slate-400 uppercase bg-gray-100/80 dark:bg-slate-800/50">
+                <tr>
+                  <th scope="col" className="px-6 py-3">Date</th>
+                  <th scope="col" className="px-6 py-3">Pond</th>
+                  <th scope="col" className="px-6 py-3">Feed Type</th>
+                  <th scope="col" className="px-6 py-3 text-right">Quantity (kg)</th>
+                  <th scope="col" className="px-6 py-3 text-right">Estimated Cost</th>
+                  <th scope="col" className="px-6 py-3">Logged By</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-slate-800">
+                {mockFeedingLogs.map((log) => (
+                  <tr key={log.id} className="hover:bg-gray-50/50 dark:hover:bg-slate-800/50">
+                    <td className="px-6 py-4">{log.date}</td>
+                    <td className="px-6 py-4 font-medium text-gray-900 dark:text-slate-100">{log.pondName}</td>
+                    <td className="px-6 py-4">{log.feedTypeName}</td>
+                    <td className="px-6 py-4 text-right">{log.quantityKg.toFixed(2)}</td>
+                    <td className="px-6 py-4 text-right font-medium">{formatCurrency(log.cost)}</td>
+                    <td className="px-6 py-4">{log.loggedBy}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    </main>
   );
 };
 
