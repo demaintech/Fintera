@@ -1,12 +1,116 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { User, Mail, Lock, ArrowRight } from "lucide-react";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { useAuth } from "@/lib/auth-context";
+import { sanitizeInput, isValidName, isValidEmail, isValidPassword, getErrorMessage } from "@/lib/validation";
 
 const SignupPage = () => {
+  const router = useRouter();
+  const { signup } = useAuth();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const validateInputs = (): boolean => {
+    setError("");
+
+    if (!name.trim()) {
+      setError("Please enter your full name");
+      return false;
+    }
+
+    if (!isValidName(name)) {
+      setError("Name must be 2-50 characters (letters and spaces only)");
+      return false;
+    }
+
+    if (!email.trim()) {
+      setError("Please enter your email");
+      return false;
+    }
+
+    if (!isValidEmail(email)) {
+      setError("Please enter a valid email address");
+      return false;
+    }
+
+    if (!password) {
+      setError("Please enter a password");
+      return false;
+    }
+
+    if (!isValidPassword(password)) {
+      setError("Password must be at least 8 characters with uppercase, lowercase, and a number");
+      return false;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!validateInputs()) {
+      return;
+    }
+
+    setIsLoading(true);
+    setError("");
+
+    try {
+      const sanitizedName = sanitizeInput(name);
+      const sanitizedEmail = sanitizeInput(email);
+
+      await signup(sanitizedName, sanitizedEmail, password);
+
+      toast.success("Account created successfully! Redirecting you...", {
+        position: "top-right",
+        autoClose: 1500,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        theme: "dark",
+      });
+
+      setTimeout(() => {
+        router.push("/admin");
+      }, 1500);
+    } catch (err: any) {
+      console.error("Signup error:", err);
+
+      const status = err.status || 500;
+      const errorMsg = getErrorMessage(status, err.message || "Signup failed. Please try again.");
+      setError(errorMsg);
+
+      toast.error(errorMsg, {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        theme: "dark",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
   return (
     <main className="relative min-h-screen w-full flex items-center justify-center p-4 overflow-hidden">
       {/* Background Image */}
@@ -36,7 +140,18 @@ const SignupPage = () => {
           </p>
         </div>
 
-        <form className="mt-8 space-y-6">
+        <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+          {/* Error Message Display */}
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-3 rounded-lg bg-destructive/20 border border-destructive/50 text-destructive text-sm"
+            >
+              {error}
+            </motion.div>
+          )}
+
           {/* Full Name Input */}
           <div className="relative">
             <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-foreground/50" />
@@ -44,7 +159,13 @@ const SignupPage = () => {
               type="text"
               placeholder="Full Name"
               required
-              className="w-full h-12 pl-10 pr-4 rounded-lg border border-white/20 bg-white/10 text-white placeholder:text-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                setError("");
+              }}
+              disabled={isLoading}
+              className="w-full h-12 pl-10 pr-4 rounded-lg border border-white/20 bg-white/10 text-white placeholder:text-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
 
@@ -55,7 +176,13 @@ const SignupPage = () => {
               type="email"
               placeholder="Email Address"
               required
-              className="w-full h-12 pl-10 pr-4 rounded-lg border border-white/20 bg-white/10 text-white placeholder:text-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setError("");
+              }}
+              disabled={isLoading}
+              className="w-full h-12 pl-10 pr-4 rounded-lg border border-white/20 bg-white/10 text-white placeholder:text-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
 
@@ -66,12 +193,51 @@ const SignupPage = () => {
               type="password"
               placeholder="Password"
               required
-              className="w-full h-12 pl-10 pr-4 rounded-lg border border-white/20 bg-white/10 text-white placeholder:text-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setError("");
+              }}
+              disabled={isLoading}
+              className="w-full h-12 pl-10 pr-4 rounded-lg border border-white/20 bg-white/10 text-white placeholder:text-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
 
-          <button type="submit" className="w-full inline-flex items-center justify-center gap-2 h-12 rounded-md bg-primary px-8 py-3 text-base font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
-            Sign Up <ArrowRight className="h-5 w-5" />
+          {/* Confirm Password Input */}
+          <div className="relative">
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-foreground/50" />
+            <input
+              type="password"
+              placeholder="Confirm Password"
+              required
+              value={confirmPassword}
+              onChange={(e) => {
+                setConfirmPassword(e.target.value);
+                setError("");
+              }}
+              disabled={isLoading}
+              className="w-full h-12 pl-10 pr-4 rounded-lg border border-white/20 bg-white/10 text-white placeholder:text-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full inline-flex items-center justify-center gap-2 h-12 rounded-md bg-primary px-8 py-3 text-base font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoading ? (
+              <span className="flex items-center gap-2">
+                <svg className="animate-spin h-5 w-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Creating Account...
+              </span>
+            ) : (
+              <>
+                Sign Up <ArrowRight className="h-5 w-5" />
+              </>
+            )}
           </button>
         </form>
 
@@ -79,6 +245,7 @@ const SignupPage = () => {
           Already have an account? <Link href="/auth/login" className="font-semibold text-white hover:underline">Login</Link>
         </p>
       </motion.div>
+      <ToastContainer />
     </main>
   );
 };
