@@ -3,6 +3,16 @@ export type Pond = {
   name: string;
 };
 
+export type Species = {
+  id: string;
+  commonName: string;
+  scientificName?: string;
+  description?: string;
+  color?: string;
+  totalStock: number;
+  pondsCurrentlyUsing: string[];
+};
+
 export type FeedType = {
   id: string;
   name: string;

@@ -66,8 +66,10 @@ const MortalityPage = () => {
     setFormState(prevState => ({ ...prevState, [id]: value }));
   };
 
-  const handleSelectChange = (id: string, value: string) => {
-    setFormState(prevState => ({ ...prevState, [id]: value as MortalityRecord['cause'] }));
+  const handleSelectChange = (id: string, value: string | null) => {
+    if (value) {
+      setFormState(prevState => ({ ...prevState, [id]: value as MortalityRecord['cause'] }));
+    }
   };
 
   const handleSubmit = async (e: FormEvent) => {

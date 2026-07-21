@@ -66,8 +66,10 @@ const StockRecordsPage = () => {
     setFormState(prevState => ({ ...prevState, [id]: value }));
   };
 
-  const handleSelectChange = (id: string, value: string) => {
-    setFormState(prevState => ({ ...prevState, [id]: value }));
+  const handleSelectChange = (id: string, value: unknown) => {
+    if (typeof value === 'string') {
+      setFormState(prevState => ({ ...prevState, [id]: value }));
+    }
   };
 
   const handleSubmit = async (e: FormEvent) => {

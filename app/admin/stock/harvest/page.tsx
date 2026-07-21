@@ -59,8 +59,10 @@ const HarvestPage = () => {
     setFormState(prevState => ({ ...prevState, [id]: value }));
   };
 
-  const handleSelectChange = (id: string, value: string) => {
-    setFormState(prevState => ({ ...prevState, [id]: value as HarvestRecord['method'] }));
+  const handleSelectChange = (id: string, value: string | null) => {
+    if (value) {
+      setFormState(prevState => ({ ...prevState, [id]: value as HarvestRecord['method'] }));
+    }
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -114,7 +116,7 @@ const HarvestPage = () => {
                 <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="quantity" className="text-right">Quantity</Label><Input id="quantity" type="number" value={formState.quantity} onChange={handleInputChange} className="col-span-3" placeholder="e.g., 1200" /></div>
                 <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="averageWeightKg" className="text-right">Avg. Weight (kg)</Label><Input id="averageWeightKg" type="number" step="0.01" value={formState.averageWeightKg} onChange={handleInputChange} className="col-span-3" placeholder="e.g., 0.8" /></div>
                 <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="harvestDate" className="text-right">Harvest Date</Label><Input id="harvestDate" type="date" value={formState.harvestDate} onChange={handleInputChange} className="col-span-3" /></div>
-                <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="method" className="text-right">Method</Label><Select onValueChange={(value) => handleSelectChange('method', value)} defaultValue={formState.method}><SelectTrigger className="col-span-3"><SelectValue placeholder="Select a method" /></SelectTrigger><SelectContent><SelectItem value="Netting">Netting</SelectItem><SelectItem value="Draining">Draining</SelectItem><SelectItem value="Trapping">Trapping</SelectItem></SelectContent></Select></div>
+                <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="method" className="text-right">Method</Label><Select onValueChange={(value) => handleSelectChange('method', value)} defaultValue={formState.method as string}><SelectTrigger className="col-span-3"><SelectValue placeholder="Select a method" /></SelectTrigger><SelectContent><SelectItem value="Netting">Netting</SelectItem><SelectItem value="Draining">Draining</SelectItem><SelectItem value="Trapping">Trapping</SelectItem></SelectContent></Select></div>
                 <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="recordedBy" className="text-right">Recorded By</Label><Input id="recordedBy" value={formState.recordedBy} onChange={handleInputChange} className="col-span-3" placeholder="e.g., Alex Ray" /></div>
                 {error && <p className="col-span-4 text-sm text-red-600 text-center">{error}</p>}
               </div>

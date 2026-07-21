@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Fish, Layers, Package, Sigma } from "lucide-react";
-import { Species } from "@/app/admin/stock/species/types";
+import { Species } from "@/components/types";
 
 interface SpeciesKpiCardsProps {
   speciesData: Species[];

@@ -31,7 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Species } from "../types";
+import { Species } from "./types";
 import { Badge } from "@/components/ui/badge";
 
 interface SpeciesDataTableProps {
