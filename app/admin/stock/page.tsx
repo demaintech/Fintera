@@ -139,11 +139,9 @@ const StockRecordsPage = () => {
           <p className="text-gray-600 dark:text-slate-400 mt-1">Monitor and manage all fish stocking activities.</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-primary text-primary-foreground px-4 py-2 rounded-lg shadow-sm hover:bg-primary/90 transition-colors flex items-center justify-center gap-2">
-              <PlusCircle className="w-4 h-4" />
-              <span>Add New Stock Record</span>
-            </Button>
+          <DialogTrigger render={<Button className="bg-primary text-primary-foreground px-4 py-2 rounded-lg shadow-sm hover:bg-primary/90 transition-colors flex items-center justify-center gap-2" />}>
+            <PlusCircle className="w-4 h-4" />
+            <span>Add New Stock Record</span>
           </DialogTrigger>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>

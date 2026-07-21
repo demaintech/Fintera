@@ -101,10 +101,8 @@ const PondsPage = () => {
           </p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <PlusCircle className="mr-2 h-4 w-4" /> Create Pond
-            </Button>
+          <DialogTrigger render={<Button />}>
+            <PlusCircle className="mr-2 h-4 w-4" /> Create Pond
           </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
@@ -168,11 +166,9 @@ const PondsPage = () => {
                     {pond.status}
                   </Badge>
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
-                        <span className="sr-only">Open menu</span>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
+                    <DropdownMenuTrigger render={<Button variant="ghost" className="h-8 w-8 p-0" />}>
+                      <span className="sr-only">Open menu</span>
+                      <MoreHorizontal className="h-4 w-4" />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem>View Details</DropdownMenuItem>
