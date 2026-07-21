@@ -3,8 +3,24 @@
 import { Search, Bell, UserCircle } from "lucide-react";
 import ThemeToggle from "../ThemeToggle";
 import MobileNav from "./MobileNav";
+import { useAuth } from "@/lib/auth-context";
 
 const DashboardHeader = () => {
+  const { user } = useAuth();
+
+  // Derive first name: prefer stored name, then email prefix, then fallback
+  const getFirstName = () => {
+    if (user?.name && user.name.trim()) {
+      return user.name.trim().split(" ")[0];
+    }
+    if (user?.email) {
+      // Extract the part before @ and capitalise it
+      const prefix = user.email.split("@")[0];
+      return prefix.charAt(0).toUpperCase() + prefix.slice(1);
+    }
+    return "Admin";
+  };
+
   return (
     <header className="w-full flex h-20 items-center justify-between px-4 sm:px-6 bg-background border-b border-border/40">
       {/* Mobile Nav Trigger */}
@@ -15,7 +31,7 @@ const DashboardHeader = () => {
       {/* Search Bar */}
       <div className="flex items-center gap-4 sm:gap-6 flex-1">
         <h1 className="text-lg font-semibold text-foreground/90 sm:text-xl hidden md:block">
-          Welcome, Demain
+          Welcome, {getFirstName()}
         </h1>
 
         <div className="relative flex-1 max-w-md ml-2 sm:ml-0">
@@ -49,3 +65,4 @@ const DashboardHeader = () => {
 };
 
 export default DashboardHeader;
+

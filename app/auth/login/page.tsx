@@ -14,7 +14,7 @@ import { sanitizeInput, isValidEmail, isValidUsername, getErrorMessage } from "@
 const LoginPage = () => {
   const router = useRouter();
   const { login } = useAuth();
-  const [usernameOrEmail, setUsernameOrEmail] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -22,24 +22,18 @@ const LoginPage = () => {
   const validateInputs = (): boolean => {
     setError("");
 
-    if (!usernameOrEmail.trim()) {
-      setError("Please enter your username or email");
+    if (!email.trim()) {
+      setError("Please enter your email address");
+      return false;
+    }
+
+    if (!isValidEmail(email)) {
+      setError("Please enter a valid email address");
       return false;
     }
 
     if (!password) {
       setError("Please enter your password");
-      return false;
-    }
-
-    const isEmail = usernameOrEmail.includes("@");
-    if (isEmail && !isValidEmail(usernameOrEmail)) {
-      setError("Please enter a valid email address");
-      return false;
-    }
-
-    if (!isEmail && !isValidUsername(usernameOrEmail)) {
-      setError("Username must be 3-20 characters (letters, numbers, underscores)");
       return false;
     }
 
@@ -57,10 +51,10 @@ const LoginPage = () => {
     setError("");
 
     try {
-      const sanitizedInput = sanitizeInput(usernameOrEmail);
+      const sanitizedEmail = sanitizeInput(email);
       const sanitizedPassword = sanitizeInput(password);
 
-      await login(sanitizedInput, sanitizedPassword);
+      await login(sanitizedEmail, sanitizedPassword);
 
       toast.success("Login successful! Redirecting you...", {
         position: "top-right",
@@ -95,9 +89,6 @@ const LoginPage = () => {
       setIsLoading(false);
     }
   };
-
-  // Micro-interaction: Change icon dynamically depending on input content (email vs username)
-  const isEmailInput = usernameOrEmail.includes("@");
 
   return (
     <main className="relative min-h-screen w-full flex items-center justify-center p-4 overflow-hidden">
@@ -140,20 +131,16 @@ const LoginPage = () => {
             </motion.div>
           )}
 
-          {/* Email/Username Input */}
+          {/* Email Input */}
           <div className="relative">
-            {isEmailInput ? (
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-foreground/50 transition-all duration-300" />
-            ) : (
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-foreground/50 transition-all duration-300" />
-            )}
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-foreground/50 transition-all duration-300" />
             <input
-              type="text"
-              placeholder="Username or Email"
+              type="email"
+              placeholder="Email Address"
               required
-              value={usernameOrEmail}
+              value={email}
               onChange={(e) => {
-                setUsernameOrEmail(e.target.value);
+                setEmail(e.target.value);
                 setError("");
               }}
               disabled={isLoading}

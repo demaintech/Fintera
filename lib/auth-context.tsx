@@ -15,7 +15,7 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ token: string; user: User }>;
-  signup: (name: string, email: string, password: string) => Promise<{ token: string; user: User }>;
+  signup: (fullname: string, email: string, password: string) => Promise<{ token: string; user: User }>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -64,9 +64,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
-  const login = async (emailOrUsername: string, password: string) => {
+  const login = async (email: string, password: string) => {
     const formData = new URLSearchParams();
-    formData.append("username", emailOrUsername.trim());
+    formData.append("username", email.trim());
     formData.append("password", password);
 
     const response = await fetch(`${apiUrl}/login`, {
@@ -96,46 +96,66 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       throw error;
     }
 
+    // Try to get token from response body (JWT-based) or fall back to session marker (cookie-based)
     const authToken = data.access_token || data.token;
-    
-    if (!authToken) {
-      throw new Error("No authentication token received from the server");
-    }
+
+    // Recover any previously stored name (e.g. set during signup) to show correct greeting
+    let storedName: string | undefined;
+    try {
+      const storedUserRaw = localStorage.getItem("user");
+      if (storedUserRaw) {
+        const storedUser = JSON.parse(storedUserRaw);
+        // Only reuse the name if the email matches (same account)
+        if (storedUser?.email === email.trim() && storedUser?.name) {
+          storedName = storedUser.name;
+        }
+      }
+    } catch (_) {}
 
     let loggedInUser: User = {
       id: "unknown",
-      email: emailOrUsername,
-      username: emailOrUsername,
+      email: email.trim(),
+      username: email.trim(),
+      name: storedName,
       role: "admin",
     };
 
-    const decoded = decodeJwt(authToken);
-    if (decoded && decoded.sub) {
-      loggedInUser = {
-        id: decoded.sub,
-        email: decoded.sub.includes("@") ? decoded.sub : `${decoded.sub}@fintera.com`,
-        username: decoded.sub,
-        name: decoded.sub,
-        role: "admin",
-      };
+    if (authToken) {
+      // JWT-based auth: decode and store token
+      const decoded = decodeJwt(authToken);
+      if (decoded && decoded.sub) {
+        loggedInUser = {
+          id: decoded.sub,
+          email: decoded.sub.includes("@") ? decoded.sub : email.trim(),
+          username: decoded.sub,
+          name: storedName || decoded.sub,
+          role: "admin",
+        };
+      }
+      localStorage.setItem("token", authToken);
+      setToken(authToken);
+    } else {
+      // Cookie/session-based auth: backend returned 200 OK but no token body.
+      // Store a session marker so the AdminGuard treats the user as authenticated.
+      const sessionMarker = `session_${Date.now()}`;
+      localStorage.setItem("token", sessionMarker);
+      setToken(sessionMarker);
     }
 
-    localStorage.setItem("token", authToken);
-    setToken(authToken);
     localStorage.setItem("user", JSON.stringify(loggedInUser));
     setUser(loggedInUser);
 
-    return { token: authToken, user: loggedInUser };
+    return { token: authToken || "session", user: loggedInUser };
   };
 
-  const signup = async (name: string, email: string, password: string) => {
+  const signup = async (fullname: string, email: string, password: string) => {
     const payload = {
-      name: name.trim(),
+      fullname: fullname.trim(),
       email: email.trim(),
       password: password,
     };
 
-    const response = await fetch(`${apiUrl}/auth/signup`, {
+    const response = await fetch(`${apiUrl}/signup`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -144,23 +164,50 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const data = await response.json();
 
     if (!response.ok) {
-      const errorMessage = data.message || data.error || "Signup failed";
+      let errorMessage = "Signup failed";
+      if (data && data.detail) {
+        if (typeof data.detail === "string") {
+          errorMessage = data.detail;
+        } else if (Array.isArray(data.detail) && data.detail.length > 0) {
+          errorMessage = data.detail.map((d: any) => d.msg).join(", ");
+        }
+      } else if (data && (data.message || data.error)) {
+        errorMessage = data.message || data.error;
+      }
       const error = new Error(errorMessage);
       (error as any).status = response.status;
       throw error;
     }
 
-    // Yes, token should come from signup too
-    if (data.token) {
-      localStorage.setItem("token", data.token);
-      setToken(data.token);
+    const authToken = data.access_token || data.token;
+    if (authToken) {
+      localStorage.setItem("token", authToken);
+      setToken(authToken);
     }
-    if (data.user) {
-      localStorage.setItem("user", JSON.stringify(data.user));
-      setUser(data.user);
+    
+    let signedUpUser: User = {
+      id: "unknown",
+      email: email.trim(),
+      username: email.trim(),
+      name: fullname.trim(),
+      role: "admin",
+    };
+
+    const decoded = decodeJwt(authToken);
+    if (decoded && decoded.sub) {
+      signedUpUser = {
+        id: decoded.sub,
+        email: decoded.sub.includes("@") ? decoded.sub : email.trim(),
+        username: decoded.sub,
+        name: fullname.trim(),
+        role: "admin",
+      };
     }
 
-    return { token: data.token, user: data.user };
+    localStorage.setItem("user", JSON.stringify(signedUpUser));
+    setUser(signedUpUser);
+
+    return { token: authToken || "", user: signedUpUser };
   };
 
   const logout = () => {

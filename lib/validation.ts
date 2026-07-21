@@ -30,11 +30,34 @@ export const sanitizeInput = (input: string): string => {
   return input.trim();
 };
 
-// Format error message based on status code
+// Format error message based on status code and message contents
 export const getErrorMessage = (status: number, defaultMessage: string): string => {
+  const msg = defaultMessage ? defaultMessage.toLowerCase() : "";
+
+  // Check specific substring patterns first to override generic status codes
+  if (
+    msg.includes("already exists") ||
+    msg.includes("email already registered") ||
+    msg.includes("already registered") ||
+    msg.includes("duplicate key") ||
+    status === 409
+  ) {
+    return "This email is already registered. Please login or use a different email.";
+  }
+
+  if (
+    msg.includes("authentication") ||
+    msg.includes("credential") ||
+    msg.includes("user not found") ||
+    msg.includes("incorrect") ||
+    status === 401
+  ) {
+    return "Incorrect email or password.";
+  }
+
   const errorMessages: { [key: number]: string } = {
     400: "Invalid input. Please check your information.",
-    401: "Invalid credentials. Please try again.",
+    401: "Incorrect email or password.",
     409: "This account already exists.",
     429: "Too many login attempts. Please try again later.",
     500: "Server error. Please try again later.",
