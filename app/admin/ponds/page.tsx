@@ -67,6 +67,12 @@ const PondsPage = () => {
   const [status, setStatus] = useState<'Active' | 'Inactive' | 'Maintenance'>('Active');
   const [error, setError] = useState('');
 
+  const handleStatusChange = (value: 'Active' | 'Inactive' | 'Maintenance' | null) => {
+    if (value !== null) {
+      setStatus(value);
+    }
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
@@ -129,7 +135,7 @@ const PondsPage = () => {
                   <Label htmlFor="status" className="text-right">
                     Status
                   </Label>
-                  <Select value={status} onValueChange={(value: 'Active' | 'Inactive' | 'Maintenance') => setStatus(value)}>
+                  <Select value={status} onValueChange={handleStatusChange}>
                     <SelectTrigger className="col-span-3">
                       <SelectValue placeholder="Select a status" />
                     </SelectTrigger>
