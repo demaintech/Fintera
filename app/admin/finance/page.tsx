@@ -288,8 +288,8 @@ const FinancePage = () => {
           <h1 className="text-3xl font-bold">Sales & Records</h1>
           <p className="text-gray-600 dark:text-slate-400 mt-1">Track, manage, and analyze your farm's sales performance.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" className="h-10 gap-2">
+        <div className="md:flex items-center gap-2">
+          <Button variant="outline" className="h-11 w-full px-4 gap-2">
             <CalendarIcon className="h-4 w-4" />
             <span>
               {date?.from ? (
@@ -305,7 +305,7 @@ const FinancePage = () => {
               )}
             </span>
           </Button>
-          <Button className="h-10 gap-2">
+          <Button className="h-11 w-full px-2 gap-2">
             <PlusCircle className="h-5 w-5" />
             <span>Add New Sale</span>
           </Button>

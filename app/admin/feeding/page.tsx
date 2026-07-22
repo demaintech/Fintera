@@ -80,8 +80,8 @@ const FeedingSchedulePage = () => {
               <Skeleton className="h-28" />
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <Skeleton className="h-[400px] lg:col-span-2" />
-              <Skeleton className="h-[400px]" />
+              <Skeleton className="h-100 lg:col-span-2" />
+              <Skeleton className="h-100" />
             </div>
           </div>
         ) : (

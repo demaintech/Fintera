@@ -141,11 +141,11 @@ const StockRecordsPage = () => {
           <p className="text-gray-600 dark:text-slate-400 mt-1">Monitor and manage all fish stocking activities.</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger render={<Button className="bg-primary text-primary-foreground px-4 py-2 rounded-lg shadow-sm hover:bg-primary/90 transition-colors flex items-center justify-center gap-2" />}>
+          <DialogTrigger render={<Button className="bg-primary text-primary-foreground px-4 py-2 h-11 rounded-lg shadow-sm hover:bg-primary/90 transition-colors flex items-center justify-center gap-2" />}>
             <PlusCircle className="w-4 h-4" />
             <span>Add New Stock Record</span>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-xl p-6">
             <DialogHeader>
               <DialogTitle>Add New Stock Record</DialogTitle>
               <DialogDescription>
@@ -156,23 +156,23 @@ const StockRecordsPage = () => {
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="pondName" className="text-right">Pond</Label>
-                  <Input id="pondName" value={formState.pondName} onChange={handleInputChange} className="col-span-3" placeholder="e.g., Main Koi Pond" />
+                  <Input id="pondName" value={formState.pondName} onChange={handleInputChange} className="col-span-3 rounded-sm h-11" placeholder="e.g., Main Koi Pond" />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="species" className="text-right">Species</Label>
-                  <Input id="species" value={formState.species} onChange={handleInputChange} className="col-span-3" placeholder="e.g., Koi Carp" />
+                  <Input id="species" value={formState.species} onChange={handleInputChange} className="col-span-3 rounded-sm h-11" placeholder="e.g., Koi Carp" />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="quantity" className="text-right">Quantity</Label>
-                  <Input id="quantity" type="number" value={formState.quantity} onChange={handleInputChange} className="col-span-3" placeholder="e.g., 100" />
+                  <Input id="quantity" type="number" value={formState.quantity} onChange={handleInputChange} className="col-span-3 rounded-sm h-11" placeholder="e.g., 100" />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="averageWeightKg" className="text-right">Avg. Weight (kg)</Label>
-                  <Input id="averageWeightKg" type="number" step="0.01" value={formState.averageWeightKg} onChange={handleInputChange} className="col-span-3" placeholder="e.g., 0.5" />
+                  <Input id="averageWeightKg" type="number" step="0.01" value={formState.averageWeightKg} onChange={handleInputChange} className="col-span-3 rounded-sm h-11" placeholder="e.g., 0.5" />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="stockingDate" className="text-right">Stocking Date</Label>
-                  <Input id="stockingDate" type="date" value={formState.stockingDate} onChange={handleInputChange} className="col-span-3" />
+                  <Input id="stockingDate" type="date" value={formState.stockingDate} onChange={handleInputChange} className="col-span-3 rounded-sm h-11" />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="supplier" className="text-right">Supplier</Label>

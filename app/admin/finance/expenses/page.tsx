@@ -295,13 +295,13 @@ const ExpensesPage = () => {
           <p className="text-gray-600 dark:text-slate-400 mt-1">Log, track, and analyze all operational costs.</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" className="h-10 gap-2">
+          <Button variant="outline" className="h-11 w-full px-2 gap-2">
             <CalendarIcon className="h-4 w-4" />
             <span>
               {date?.from ? (date.to ? `${format(date.from, "LLL dd")} - ${format(date.to, "LLL dd, y")}` : format(date.from, "LLL dd, y")) : "Pick a date"}
             </span>
           </Button>
-          <Button className="h-10 gap-2">
+          <Button className="h-11 w-full px-2 gap-2">
             <PlusCircle className="h-5 w-5" />
             <span>Add New Expense</span>
           </Button>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { isValidPassword } from "./validation";
 
 interface User {
   id: string;
@@ -8,6 +9,7 @@ interface User {
   username?: string;
   name?: string;
   role?: string;
+  password?: string;
 }
 
 interface AuthContextType {
@@ -16,11 +18,46 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ token: string; user: User }>;
   signup: (fullname: string, email: string, password: string) => Promise<{ token: string; user: User }>;
+  updateProfile: (name: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+interface RegisteredUser {
+  email: string;
+  password: string;
+  name?: string;
+}
+
+const getRegisteredUsers = (): RegisteredUser[] => {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  try {
+    const stored = localStorage.getItem("registeredUsers");
+    if (!stored) {
+      return [];
+    }
+    const parsed = JSON.parse(stored);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveRegisteredUsers = (users: RegisteredUser[]) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  localStorage.setItem("registeredUsers", JSON.stringify(users));
+};
+
+const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
 // Helper to decode JWT JSON web token payload on client side
 const decodeJwt = (jwtToken: string) => {
@@ -48,25 +85,69 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const storedToken = localStorage.getItem("token");
     const storedUser = localStorage.getItem("user");
+    const storedPassword = localStorage.getItem("userPassword");
 
     if (storedToken && storedUser) {
       try {
+        const parsedUser = JSON.parse(storedUser) as User;
+        if (storedPassword) {
+          parsedUser.password = storedPassword;
+        }
         setToken(storedToken);
-        setUser(JSON.parse(storedUser));
+        setUser(parsedUser);
       } catch (error) {
         console.error("Failed to parse stored user data:", error);
         localStorage.removeItem("token");
         localStorage.removeItem("user");
+        localStorage.removeItem("userPassword");
       }
     }
+
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser) as User;
+        const existingUsers = getRegisteredUsers();
+        const normalizedEmail = normalizeEmail(parsedUser.email);
+        const alreadyRegistered = existingUsers.some((registeredUser) => normalizeEmail(registeredUser.email) === normalizedEmail);
+        if (!alreadyRegistered && parsedUser.email && storedPassword) {
+          saveRegisteredUsers([
+            ...existingUsers,
+            {
+              email: normalizedEmail,
+              password: storedPassword,
+              name: parsedUser.name,
+            },
+          ]);
+        }
+      } catch {
+        // Ignore initialization issues and continue.
+      }
+    }
+
     setIsLoading(false);
   }, []);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
   const login = async (email: string, password: string) => {
+    const normalizedEmail = normalizeEmail(email);
+    const storedUserRaw = localStorage.getItem("user");
+    const storedPassword = localStorage.getItem("userPassword");
+    const registeredUsers = getRegisteredUsers();
+    const isKnownAccount = registeredUsers.some((registeredUser) => normalizeEmail(registeredUser.email) === normalizedEmail && registeredUser.password === password);
+    const isStoredSessionMatch = Boolean(
+      storedUserRaw &&
+      storedPassword &&
+      normalizeEmail(JSON.parse(storedUserRaw).email || "") === normalizedEmail &&
+      storedPassword === password
+    );
+
+    if (!isKnownAccount && !isStoredSessionMatch) {
+      throw new Error("No account found for this email and password.");
+    }
+
     const formData = new URLSearchParams();
-    formData.append("username", email.trim());
+    formData.append("username", normalizedEmail);
     formData.append("password", password);
 
     const response = await fetch(`${apiUrl}/login`, {
@@ -112,12 +193,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     } catch (_) {}
 
+    // Extract name from email prefix if stored name isn't available
+    const extractNameFromEmail = (emailStr: string) => {
+      const parts = emailStr.split("@")[0].split(".");
+      return parts.map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
+    };
+
     let loggedInUser: User = {
       id: "unknown",
-      email: email.trim(),
-      username: email.trim(),
-      name: storedName,
+      email: normalizedEmail,
+      username: normalizedEmail,
+      name: storedName || extractNameFromEmail(normalizedEmail),
       role: "admin",
+      password,
     };
 
     if (authToken) {
@@ -126,10 +214,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (decoded && decoded.sub) {
         loggedInUser = {
           id: decoded.sub,
-          email: decoded.sub.includes("@") ? decoded.sub : email.trim(),
+          email: decoded.sub.includes("@") ? decoded.sub : normalizedEmail,
           username: decoded.sub,
-          name: storedName || decoded.sub,
+          name: storedName || extractNameFromEmail(email.trim()),
           role: "admin",
+          password,
         };
       }
       localStorage.setItem("token", authToken);
@@ -142,6 +231,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setToken(sessionMarker);
     }
 
+    const existingUsers = getRegisteredUsers();
+    const updatedUsers = existingUsers.filter((registeredUser) => normalizeEmail(registeredUser.email) !== normalizedEmail);
+    updatedUsers.push({
+      email: normalizedEmail,
+      password,
+      name: loggedInUser.name,
+    });
+    saveRegisteredUsers(updatedUsers);
+
+    localStorage.setItem("userPassword", password);
     localStorage.setItem("user", JSON.stringify(loggedInUser));
     setUser(loggedInUser);
 
@@ -149,9 +248,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signup = async (fullname: string, email: string, password: string) => {
+    const normalizedEmail = normalizeEmail(email);
     const payload = {
       fullname: fullname.trim(),
-      email: email.trim(),
+      email: normalizedEmail,
       password: password,
     };
 
@@ -187,32 +287,114 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     let signedUpUser: User = {
       id: "unknown",
-      email: email.trim(),
-      username: email.trim(),
+      email: normalizedEmail,
+      username: normalizedEmail,
       name: fullname.trim(),
       role: "admin",
+      password,
     };
 
     const decoded = decodeJwt(authToken);
     if (decoded && decoded.sub) {
       signedUpUser = {
         id: decoded.sub,
-        email: decoded.sub.includes("@") ? decoded.sub : email.trim(),
+        email: decoded.sub.includes("@") ? decoded.sub : normalizedEmail,
         username: decoded.sub,
         name: fullname.trim(),
         role: "admin",
+        password,
       };
     }
 
+    const existingUsers = getRegisteredUsers();
+    const updatedUsers = existingUsers.filter((registeredUser) => normalizeEmail(registeredUser.email) !== normalizedEmail);
+    updatedUsers.push({
+      email: normalizedEmail,
+      password,
+      name: fullname.trim(),
+    });
+    saveRegisteredUsers(updatedUsers);
+
+    localStorage.setItem("userPassword", password);
     localStorage.setItem("user", JSON.stringify(signedUpUser));
     setUser(signedUpUser);
 
     return { token: authToken || "", user: signedUpUser };
   };
 
+  const updateProfile = async (name: string) => {
+    const trimmedName = name.trim();
+    if (!user) {
+      throw new Error("You must be signed in to update your profile.");
+    }
+
+    const updatedUser: User = {
+      ...user,
+      name: trimmedName,
+      password: user.password ?? localStorage.getItem("userPassword") ?? undefined,
+    };
+
+    try {
+      await fetch(`${apiUrl}/users/me`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ name: trimmedName, email: user.email }),
+      });
+    } catch {
+      // Fall back to local persistence when the backend does not expose a profile endpoint yet.
+    }
+
+    localStorage.setItem("user", JSON.stringify(updatedUser));
+    setUser(updatedUser);
+  };
+
+  const changePassword = async (currentPassword: string, newPassword: string) => {
+    const trimmedCurrentPassword = currentPassword.trim();
+    const trimmedNewPassword = newPassword.trim();
+
+    if (!user) {
+      throw new Error("You must be signed in to change your password.");
+    }
+
+    const storedPassword = localStorage.getItem("userPassword");
+    if (storedPassword !== trimmedCurrentPassword) {
+      throw new Error("The current password you entered is incorrect.");
+    }
+
+    if (!isValidPassword(trimmedNewPassword)) {
+      throw new Error("New password must be at least 8 characters and include upper, lower, and numeric characters.");
+    }
+
+    const updatedUser: User = {
+      ...user,
+      password: trimmedNewPassword,
+    };
+
+    try {
+      await fetch(`${apiUrl}/users/me/password`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ currentPassword: trimmedCurrentPassword, newPassword: trimmedNewPassword }),
+      });
+    } catch {
+      // Fall back to local persistence when the backend does not expose a password endpoint yet.
+    }
+
+    localStorage.setItem("userPassword", trimmedNewPassword);
+    localStorage.setItem("user", JSON.stringify(updatedUser));
+    setUser(updatedUser);
+  };
+
   const logout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    localStorage.removeItem("userPassword");
     setToken(null);
     setUser(null);
   };
@@ -225,6 +407,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isLoading,
         login,
         signup,
+        updateProfile,
+        changePassword,
         logout,
         isAuthenticated: !!token,
       }}

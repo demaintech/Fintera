@@ -99,7 +99,7 @@ const FeedInventoryPage = () => {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-slate-50">Feed Inventory</h1>
           <p className="text-gray-600 dark:text-slate-400 mt-1">Track and manage your current feed stock levels and value.</p>
         </div>
-        <Button onClick={() => setIsDialogOpen(true)}>
+        <Button onClick={() => setIsDialogOpen(true)} className="flex items-center gap-2 w-0 sm:w-auto h-11 px-4">
           <PlusCircle className="w-4 h-4 mr-2" />
           Add Feed Stock
         </Button>
@@ -168,7 +168,7 @@ const FeedInventoryPage = () => {
             <div className="bg-white dark:bg-slate-900 rounded-lg shadow-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
                 <h2 className="text-lg font-semibold">Add New Feed Stock</h2>
                 <p className="text-sm text-gray-500 mb-4">This is a placeholder for the 'Add Stock' form.</p>
-                <Button onClick={() => setIsDialogOpen(false)}>Close</Button>
+                <Button onClick={() => setIsDialogOpen(false)} className='w-auto px-4 h-11 rounded-sm'>Close</Button>
             </div>
         </div>
       )}

@@ -32,7 +32,7 @@ type NavItem =
       children: Array<{ href: string; label: string }>;
     };
 
-const navSections = [
+export const navSections = [
   {
     title: "Overview",
     items: [{ href: "/admin", label: "Dashboard", icon: LayoutDashboard }],
@@ -136,8 +136,8 @@ const SideNav = () => {
   };
 
   return (
-    <aside className="fixed left-0 top-0 hidden h-screen w-72 flex-col border-r border-border/40 bg-white dark:bg-slate-950 md:flex">
-      <div className="flex h-20 items-center border-b border-border/40 px-6">
+    <aside className="fixed left-0 top-0 hidden h-screen w-72 flex-col border-r border-border/40 border-gray-500 bg-white dark:bg-slate-950 md:flex">
+      <div className="flex h-20 items-center border-b border-border/40 border-gray-500 px-6">
         <Link href="/" className="flex items-center gap-2">
           <Fish className="h-7 w-7 text-primary" />
           <span className="text-2xl font-bold">Fintera</span>
@@ -146,7 +146,7 @@ const SideNav = () => {
 
       <nav className="flex-1 space-y-4 px-4 py-6">
         {navSections.map((section) => (
-          <div key={section.title} className="space-y-2">
+          <div key={section.title} className="space-y-4">
             <div className="px-2 text-xs font-semibold uppercase tracking-[0.2em] text-foreground/50">
               {section.title}
             </div>

@@ -1,10 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Building, User, Palette, Bell, Save, KeyRound } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Building, User, Palette, Bell, Save, KeyRound, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
+import { useAuth } from '@/lib/auth-context';
+import { isValidName, isValidPassword, sanitizeInput } from '@/lib/validation';
 
 // --- Reusable UI Components ---
+
+type Notice = { type: 'success' | 'error'; text: string } | null;
 
 const Card = ({ children, className }: { children: React.ReactNode, className?: string }) => (
   <div className={`bg-white dark:bg-slate-900 border border-gray-200/80 dark:border-slate-800 rounded-xl shadow-sm ${className}`}>{children}</div>
@@ -58,7 +62,7 @@ const Switch = ({ checked, onChange }: { checked: boolean, onChange: (checked: b
         onClick={() => onChange(!checked)}
         className={`${
             checked ? 'bg-slate-900 dark:bg-blue-600' : 'bg-gray-200 dark:bg-slate-700'
-        } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-slate-600 focus:ring-offset-2`}
+        } relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-slate-600 focus:ring-offset-2`}
     >
         <span
             aria-hidden="true"
@@ -69,22 +73,115 @@ const Switch = ({ checked, onChange }: { checked: boolean, onChange: (checked: b
     </button>
 );
 
+const NoticeBox = ({ notice }: { notice: Notice }) => {
+  if (!notice) return null;
+
+  const isSuccess = notice.type === 'success';
+
+  return (
+    <div className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-sm ${isSuccess ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-300' : 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300'}`}>
+      {isSuccess ? <CheckCircle2 className="mt-0.5 h-4 w-4" /> : <AlertCircle className="mt-0.5 h-4 w-4" />}
+      <span>{notice.text}</span>
+    </div>
+  );
+};
+
 const SettingsPage = () => {
+  const { user, updateProfile, changePassword } = useAuth();
   const [activeTab, setActiveTab] = useState('farm');
 
-  // Mock state for form fields
   const [farmName, setFarmName] = useState('Fintera Aqua Farms');
   const [farmAddress, setFarmAddress] = useState('123 Fishery Lane, Oceanview');
-  const [userName, setUserName] = useState('Demain');
-  const [userEmail, setUserEmail] = useState('demain@fintera.com');
+  const [userName, setUserName] = useState('');
+  const [userEmail, setUserEmail] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [profileNotice, setProfileNotice] = useState<Notice>(null);
+  const [passwordNotice, setPasswordNotice] = useState<Notice>(null);
+
+  useEffect(() => {
+    if (user) {
+      setUserName(user.name || '');
+      setUserEmail(user.email || '');
+    }
+  }, [user]);
 
   const tabs = [
     { id: 'farm', label: 'Farm Management', icon: Building },
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'system', label: 'System', icon: Palette },
   ];
+
+  const handleProfileSave = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const trimmedName = sanitizeInput(userName);
+
+    if (!trimmedName) {
+      setProfileNotice({ type: 'error', text: 'Please enter your full name.' });
+      return;
+    }
+
+    if (!isValidName(trimmedName)) {
+      setProfileNotice({ type: 'error', text: 'Please use letters and spaces only for your full name.' });
+      return;
+    }
+
+    setIsSavingProfile(true);
+    setProfileNotice(null);
+
+    try {
+      await updateProfile(trimmedName);
+      setProfileNotice({ type: 'success', text: 'Profile updated successfully.' });
+    } catch (error) {
+      setProfileNotice({ type: 'error', text: error instanceof Error ? error.message : 'Unable to update profile.' });
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
+  const handlePasswordChange = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (!currentPassword.trim()) {
+      setPasswordNotice({ type: 'error', text: 'Please enter your current password.' });
+      return;
+    }
+
+    if (!newPassword.trim()) {
+      setPasswordNotice({ type: 'error', text: 'Please enter a new password.' });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordNotice({ type: 'error', text: 'The new password confirmation does not match.' });
+      return;
+    }
+
+    if (!isValidPassword(newPassword)) {
+      setPasswordNotice({ type: 'error', text: 'New password must be at least 8 characters and include upper, lower, and numeric characters.' });
+      return;
+    }
+
+    setIsChangingPassword(true);
+    setPasswordNotice(null);
+
+    try {
+      await changePassword(currentPassword, newPassword);
+      setPasswordNotice({ type: 'success', text: 'Password updated successfully.' });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error) {
+      setPasswordNotice({ type: 'error', text: error instanceof Error ? error.message : 'Unable to update password.' });
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
 
   return (
     <main className="flex-1 p-4 sm:p-6 md:p-8 bg-gray-50/50 dark:bg-slate-950">
@@ -133,7 +230,7 @@ const SettingsPage = () => {
                 </div>
               </CardContent>
               <CardFooter>
-                <Button><Save className="w-4 h-4 mr-2" />Save Changes</Button>
+                <Button className='h-10 w-50'><Save className="w-4 h-4 mr-2" />Save Changes</Button>
               </CardFooter>
             </Card>
           )}
@@ -141,46 +238,56 @@ const SettingsPage = () => {
           {activeTab === 'profile' && (
             <div className="space-y-6">
               <Card>
-                <CardHeader>
-                  <CardTitle>Personal Information</CardTitle>
-                  <CardDescription>Update your personal details.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="userName">Full Name</Label>
-                    <Input id="userName" type="text" value={userName} onChange={e => setUserName(e.target.value)} />
-                  </div>
-                  <div>
-                    <Label htmlFor="userEmail">Email Address</Label>
-                    <Input id="userEmail" type="email" value={userEmail} readOnly className="bg-gray-100 dark:bg-slate-800/50 cursor-not-allowed" />
-                  </div>
-                </CardContent>
-                <CardFooter>
-                  <Button><Save className="w-4 h-4 mr-2" />Update Profile</Button>
-                </CardFooter>
+                <form onSubmit={handleProfileSave}>
+                  <CardHeader>
+                    <CardTitle>Personal Information</CardTitle>
+                    <CardDescription>Update your personal details.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label htmlFor="userName">Full Name</Label>
+                      <Input id="userName" type="text" value={userName} onChange={e => setUserName(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label htmlFor="userEmail">Email Address</Label>
+                      <Input id="userEmail" type="email" value={userEmail} readOnly className="bg-gray-100 dark:bg-slate-800/50 cursor-not-allowed" />
+                    </div>
+                    <NoticeBox notice={profileNotice} />
+                  </CardContent>
+                  <CardFooter>
+                    <Button type="submit" className='h-10 w-50' disabled={isSavingProfile}>
+                      {isSavingProfile ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</> : <><Save className="w-4 h-4 mr-2" />Update Profile</>}
+                    </Button>
+                  </CardFooter>
+                </form>
               </Card>
               <Card>
-                <CardHeader>
-                  <CardTitle>Change Password</CardTitle>
-                  <CardDescription>Update your account password.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="currentPassword">Current Password</Label>
-                    <Input id="currentPassword" type="password" />
-                  </div>
-                  <div>
-                    <Label htmlFor="newPassword">New Password</Label>
-                    <Input id="newPassword" type="password" />
-                  </div>
-                  <div>
-                    <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                    <Input id="confirmPassword" type="password" />
-                  </div>
-                </CardContent>
-                <CardFooter>
-                  <Button><KeyRound className="w-4 h-4 mr-2" />Change Password</Button>
-                </CardFooter>
+                <form onSubmit={handlePasswordChange}>
+                  <CardHeader>
+                    <CardTitle>Change Password</CardTitle>
+                    <CardDescription>Update your account password.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label htmlFor="currentPassword">Current Password</Label>
+                      <Input id="currentPassword" type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label htmlFor="newPassword">New Password</Label>
+                      <Input id="newPassword" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                      <Input id="confirmPassword" type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
+                    </div>
+                    <NoticeBox notice={passwordNotice} />
+                  </CardContent>
+                  <CardFooter>
+                    <Button type="submit" className='h-10 w-50' disabled={isChangingPassword}>
+                      {isChangingPassword ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Updating...</> : <><KeyRound className="w-4 h-4 mr-2" />Change Password</>}
+                    </Button>
+                  </CardFooter>
+                </form>
               </Card>
             </div>
           )}

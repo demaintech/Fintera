@@ -112,10 +112,10 @@ const mortalityChartConfig = {
 const page = () => {
   return (
     <div className="space-y-4 sm:space-y-6">
-      <section className="rounded-2xl sm:rounded-3xl border border-border/20 bg-linear-to-br from-primary/10 via-background to-background p-4 sm:p-6 shadow-sm">
+      <section className="rounded-2xl sm:rounded-3xl border border-border/20 border-gray-500 bg-linear-to-br from-primary/10 via-background to-background p-4 sm:p-6 shadow-sm">
         <div className="flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
-            <div className="mb-2 sm:mb-3 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-background/70 px-3 py-1 text-xs sm:text-sm font-medium text-primary">
+            <div className="mb-2 sm:mb-3 inline-flex items-center gap-2 rounded-full border border-primary/20 border-gray-500 bg-background/70 px-3 py-1 text-xs sm:text-sm font-medium text-primary">
               <Activity className="h-4 w-4" />
               Aquaculture Ops Overview
             </div>
@@ -139,7 +139,7 @@ const page = () => {
           return (
             <div
               key={item.title}
-              className="rounded-lg sm:rounded-2xl border border-border/20 bg-background p-3 sm:p-5 shadow-sm transition hover:-translate-y-0.5"
+              className="rounded-lg sm:rounded-2xl border border-border/20 border-gray-500 dark:border-border-gray-900 bg-background p-3 sm:p-5 shadow-sm transition hover:-translate-y-0.5"
             >
               <div className={`rounded-lg sm:rounded-xl bg-linear-to-br ${item.accent} p-2 sm:p-3`}>
                 <Icon className="h-5 sm:h-6 w-5 sm:w-6 text-foreground" />
@@ -162,7 +162,7 @@ const page = () => {
       </section>
 
       <section className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-[1fr] lg:grid-cols-[1.35fr_0.95fr]">
-        <div className="rounded-2xl sm:rounded-3xl border border-border/20 bg-background p-4 sm:p-6 shadow-sm">
+        <div className="rounded-2xl sm:rounded-3xl border border-border/20 border-gray-500 bg-background p-4 sm:p-6 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
             <div>
               <h2 className="text-lg sm:text-xl font-semibold">Revenue & Sales Trend</h2>
@@ -217,7 +217,7 @@ const page = () => {
         </div>
 
         <div className="space-y-4 sm:space-y-6">
-          <div className="rounded-2xl sm:rounded-3xl border border-border/20 bg-background p-4 sm:p-6 shadow-sm">
+          <div className="rounded-2xl sm:rounded-3xl border border-border/20 border-gray-500 bg-background p-4 sm:p-6 shadow-sm">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
               <div>
                 <h2 className="text-lg sm:text-xl font-semibold">Mortality Rate</h2>
@@ -267,7 +267,7 @@ const page = () => {
             </ChartContainer>
           </div>
 
-          <div className="rounded-2xl sm:rounded-3xl border border-border/20 bg-background p-4 sm:p-6 shadow-sm">
+          <div className="rounded-2xl sm:rounded-3xl border border-border/20 border-gray-500 bg-background p-4 sm:p-6 shadow-sm">
             <h2 className="text-lg sm:text-xl font-semibold">Farm Health Snapshot</h2>
             <div className="mt-3 sm:mt-5 grid gap-2 sm:gap-3">
               {activities.map((activity) => (
@@ -282,34 +282,34 @@ const page = () => {
       </section>
 
       <section className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="rounded-2xl sm:rounded-3xl border border-border/20 bg-background p-4 sm:p-6 shadow-sm">
+        <div className="rounded-2xl sm:rounded-3xl border border-border/20 border-gray-500 bg-background p-4 sm:p-6 shadow-sm">
           <h2 className="text-lg sm:text-xl font-semibold">Upcoming Tasks</h2>
           <ul className="mt-3 sm:mt-5 space-y-2 sm:space-y-3 text-xs sm:text-sm text-foreground/70">
-            <li className="rounded-lg sm:rounded-xl border border-border/30 bg-muted/30 px-3 sm:px-4 py-2 sm:py-3">Feed delivery scheduled for tomorrow</li>
-            <li className="rounded-lg sm:rounded-xl border border-border/30 bg-muted/30 px-3 sm:px-4 py-2 sm:py-3">Water quality check due in 2 hours</li>
-            <li className="rounded-lg sm:rounded-xl border border-border/30 bg-muted/30 px-3 sm:px-4 py-2 sm:py-3">Harvest planning review at 4 PM</li>
+            <li className="rounded-lg sm:rounded-xl border border-border/30 border-gray-500 bg-muted/30 px-3 sm:px-4 py-2 sm:py-3">Feed delivery scheduled for tomorrow</li>
+            <li className="rounded-lg sm:rounded-xl border border-border/30 border-gray-500 bg-muted/30 px-3 sm:px-4 py-2 sm:py-3">Water quality check due in 2 hours</li>
+            <li className="rounded-lg sm:rounded-xl border border-border/30 border-gray-500 bg-muted/30 px-3 sm:px-4 py-2 sm:py-3">Harvest planning review at 4 PM</li>
           </ul>
         </div>
 
-        <div className="rounded-2xl sm:rounded-3xl border border-border/20 bg-background p-4 sm:p-6 shadow-sm">
+        <div className="rounded-2xl sm:rounded-3xl border border-border/20 border-gray-500 bg-background p-4 sm:p-6 shadow-sm">
           <h2 className="text-lg sm:text-xl font-semibold">Pond Status</h2>
           <div className="mt-3 sm:mt-5 space-y-2 sm:space-y-3 text-xs sm:text-sm">
-            <div className="flex items-center justify-between rounded-lg sm:rounded-xl border border-border/30 bg-muted/30 px-3 sm:px-4 py-2 sm:py-3">
+            <div className="flex items-center justify-between rounded-lg sm:rounded-xl border border-border/30 border-gray-500 bg-muted/30 px-3 sm:px-4 py-2 sm:py-3">
               <span>North Pond</span>
               <span className="font-medium text-emerald-600">Healthy</span>
             </div>
-            <div className="flex items-center justify-between rounded-lg sm:rounded-xl border border-border/30 bg-muted/30 px-3 sm:px-4 py-2 sm:py-3">
+            <div className="flex items-center justify-between rounded-lg sm:rounded-xl border border-border/30 border-gray-500 bg-muted/30 px-3 sm:px-4 py-2 sm:py-3">
               <span>South Pond</span>
               <span className="font-medium text-amber-600">Watch</span>
             </div>
-            <div className="flex items-center justify-between rounded-lg sm:rounded-xl border border-border/30 bg-muted/30 px-3 sm:px-4 py-2 sm:py-3">
+            <div className="flex items-center justify-between rounded-lg sm:rounded-xl border border-border/30 border-gray-500 bg-muted/30 px-3 sm:px-4 py-2 sm:py-3">
               <span>East Pond</span>
               <span className="font-medium text-rose-600">Attention</span>
             </div>
           </div>
         </div>
 
-        <div className="rounded-2xl sm:rounded-3xl border border-border/20 bg-background p-4 sm:p-6 shadow-sm">
+        <div className="rounded-2xl sm:rounded-3xl border border-border/20 border-gray-500 bg-background p-4 sm:p-6 shadow-sm">
           <h2 className="text-lg sm:text-xl font-semibold">Feed Efficiency</h2>
           <div className="mt-3 sm:mt-5 rounded-lg sm:rounded-2xl bg-muted/30 p-4 sm:p-4 text-center">
             <p className="text-3xl sm:text-4xl font-semibold text-primary">91%</p>

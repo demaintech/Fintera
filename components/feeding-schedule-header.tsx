@@ -148,7 +148,7 @@ export const FeedingScheduleHeader = ({
       <div className="flex items-center space-x-2">
         {/* This would be a multi-select component in a real app */}
         <Select>
-          <SelectTrigger className="w-[200px]">
+          <SelectTrigger className="w-64 h-11 rounded-sm">
             <SelectValue placeholder="Filter by Pond/Batch..." />
           </SelectTrigger>
           <SelectContent>
@@ -162,10 +162,10 @@ export const FeedingScheduleHeader = ({
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger>
             <Button>
-              <PlusCircle className="mr-2 h-4 w-4" /> Add New Schedule
+              <PlusCircle className="mr-2 h-11 w-4" /> Add New Schedule
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px]">
+          <DialogContent className="sm:max-w-xl p-6">
             <DialogHeader>
               <DialogTitle>Add New Feeding Schedule</DialogTitle>
               <DialogDescription>
@@ -179,7 +179,7 @@ export const FeedingScheduleHeader = ({
                   Pond/Batch
                 </Label>
                 <Select onValueChange={(value: any) => setPondId(value ?? "")}>
-                  <SelectTrigger className="col-span-3">
+                  <SelectTrigger className="col-span-3 rounded-sm h-11">
                     <SelectValue placeholder="Select a pond" />
                   </SelectTrigger>
                   <SelectContent>
@@ -199,7 +199,7 @@ export const FeedingScheduleHeader = ({
                     <Button
                       variant={"outline"}
                       className={cn(
-                        "col-span-3 justify-start text-left font-normal",
+                        "col-span-3 justify-start text-left font-normal rounded-sm h-11",
                         !startDate && "text-muted-foreground"
                       )}
                     >

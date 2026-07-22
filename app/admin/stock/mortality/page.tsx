@@ -143,12 +143,12 @@ const MortalityPage = () => {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-blue-600 text-white px-4 py-2 rounded-lg shadow-sm hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
+            <Button className="bg-blue-600 text-white h-11 px-4 py-2 rounded-lg shadow-sm hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
               <PlusCircle className="w-4 h-4" />
               <span>Record New Mortality</span>
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-xl p-6">
             <DialogHeader>
               <DialogTitle>Record New Mortality</DialogTitle>
               <DialogDescription>
@@ -159,19 +159,19 @@ const MortalityPage = () => {
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="pondName" className="text-right">Pond</Label>
-                  <Input id="pondName" value={formState.pondName} onChange={handleInputChange} className="col-span-3" placeholder="e.g., Main Koi Pond" />
+                  <Input id="pondName" value={formState.pondName} onChange={handleInputChange} className="col-span-3 rounded-sm h-11" placeholder="e.g., Main Koi Pond" />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="species" className="text-right">Species</Label>
-                  <Input id="species" value={formState.species} onChange={handleInputChange} className="col-span-3" placeholder="e.g., Koi Carp" />
+                  <Input id="species" value={formState.species} onChange={handleInputChange} className="col-span-3 rounded-sm h-11" placeholder="e.g., Koi Carp" />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="quantity" className="text-right">Quantity</Label>
-                  <Input id="quantity" type="number" value={formState.quantity} onChange={handleInputChange} className="col-span-3" placeholder="e.g., 5" />
+                  <Input id="quantity" type="number" value={formState.quantity} onChange={handleInputChange} className="col-span-3 rounded-sm h-11" placeholder="e.g., 5" />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="dateRecorded" className="text-right">Date</Label>
-                  <Input id="dateRecorded" type="date" value={formState.dateRecorded} onChange={handleInputChange} className="col-span-3" />
+                  <Input id="dateRecorded" type="date" value={formState.dateRecorded} onChange={handleInputChange} className="col-span-3 rounded-sm h-11" />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="cause" className="text-right">Cause</Label>
@@ -188,7 +188,7 @@ const MortalityPage = () => {
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="recordedBy" className="text-right">Recorded By</Label>
-                  <Input id="recordedBy" value={formState.recordedBy} onChange={handleInputChange} className="col-span-3" placeholder="e.g., John Doe" />
+                  <Input id="recordedBy" value={formState.recordedBy} onChange={handleInputChange} className="col-span-3 rounded-sm h-11" placeholder="e.g., John Doe" />
                 </div>
                 {error && <p className="col-span-4 text-sm text-red-600 text-center">{error}</p>}
               </div>
