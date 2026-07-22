@@ -143,7 +143,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     );
 
     if (!isKnownAccount && !isStoredSessionMatch) {
-      throw new Error("No account found for this email and password.");
+      const error = new Error("No account found for this email and password.");
+      (error as any).status = 401;
+      throw error;
     }
 
     const formData = new URLSearchParams();
@@ -172,6 +174,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } else if (data && (data.message || data.error)) {
         errorMessage = data.message || data.error;
       }
+
+      const normalizedErrorMessage = errorMessage.toLowerCase();
+      if (
+        normalizedErrorMessage.includes("credential") ||
+        normalizedErrorMessage.includes("authentication") ||
+        normalizedErrorMessage.includes("incorrect") ||
+        normalizedErrorMessage.includes("user not found") ||
+        response.status === 401
+      ) {
+        const error = new Error("Incorrect email or password.");
+        (error as any).status = 401;
+        throw error;
+      }
+
       const error = new Error(errorMessage);
       (error as any).status = response.status;
       throw error;
