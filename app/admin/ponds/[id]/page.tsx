@@ -1,16 +1,7 @@
-import React from 'react';
-import { Droplets, Fish, Thermometer, Activity, Calendar, MapPin, Edit, Trash2, ChevronLeft } from 'lucide-react';
+﻿import React from 'react';
+import { Droplets, Fish, Thermometer, Calendar, MapPin, ChevronLeft, Edit, Trash2 } from 'lucide-react';
 import Link from 'next/link';
-
-// Mock data for all ponds. In a real app, you'd fetch this from a database.
-const MOCK_PONDS_DATA = [
-  { id: 'P001', name: 'Alpha-1', location: 'North Sector', status: 'Active', currentStock: { species: 'Tilapia', quantity: 5000 }, lastHarvestDate: new Date('2023-10-15'), waterTemp: 28.5, phLevel: 7.2, dimensions: '30m x 20m x 1.5m', volume: '900,000 L', recentActivity: [{ id: 1, type: 'Feeding', description: 'Fed 5kg of pellets.', timestamp: '3 hours ago' }] },
-  { id: 'P002', name: 'Bravo-2', location: 'West Sector', status: 'Active', currentStock: { species: 'Catfish', quantity: 3500 }, lastHarvestDate: new Date('2023-09-20'), waterTemp: 26.0, phLevel: 6.8, dimensions: '25m x 20m x 1.8m', volume: '900,000 L', recentActivity: [{ id: 1, type: 'Water Test', description: 'pH level slightly low.', timestamp: 'Yesterday' }] },
-  { id: 'P003', name: 'Charlie-1', location: 'North Sector', status: 'Maintenance', currentStock: { species: 'None', quantity: 0 }, lastHarvestDate: null, waterTemp: 25.0, phLevel: 7.0, dimensions: '20m x 15m x 1.5m', volume: '450,000 L', recentActivity: [{ id: 1, type: 'Maintenance', description: 'Draining for cleaning.', timestamp: '2 days ago' }] },
-  { id: 'P004', name: 'Delta-4', location: 'East Sector', status: 'Inactive', currentStock: { species: 'None', quantity: 0 }, lastHarvestDate: new Date('2023-05-11'), waterTemp: 22.0, phLevel: 7.1, dimensions: '25m x 15m x 1.5m', volume: '562,500 L', recentActivity: [] },
-  { id: 'P005', name: 'Echo-3', location: 'West Sector', status: 'Active', currentStock: { species: 'Shrimp', quantity: 15000 }, lastHarvestDate: new Date('2023-11-01'), waterTemp: 29.1, phLevel: 7.8, dimensions: '40m x 25m x 1.2m', volume: '1,200,000 L', recentActivity: [{ id: 1, type: 'Harvest', description: 'Partial harvest completed.', timestamp: 'Last week' }] },
-  { id: 'P006', name: 'Foxtrot-1', location: 'South Sector', status: 'Active', currentStock: { species: 'Tilapia', quantity: 4800 }, lastHarvestDate: new Date('2023-10-25'), waterTemp: 28.2, phLevel: 7.3, dimensions: '30m x 20m x 1.5m', volume: '900,000 L', recentActivity: [{ id: 1, type: 'Feeding', description: 'Routine feeding.', timestamp: '4 hours ago' }] },
-];
+import { getPond, type Pond } from '@/lib/pond-api';
 
 const statusColorMap: Record<string, string> = {
   Active: 'bg-green-100 text-green-800',
@@ -18,7 +9,7 @@ const statusColorMap: Record<string, string> = {
   Maintenance: 'bg-yellow-100 text-yellow-800',
 };
 
-const StatCard = ({ icon: Icon, label, value, unit }: { icon: React.ElementType, label: string, value: string | number, unit?: string }) => (
+const StatCard = ({ icon: Icon, label, value, unit }: { icon: React.ElementType; label: string; value: string | number; unit?: string }) => (
   <div className="bg-white p-4 rounded-lg shadow-sm flex items-center">
     <div className="p-3 rounded-full bg-sky-100 text-sky-600 mr-4">
       <Icon className="h-6 w-6" />
@@ -32,9 +23,26 @@ const StatCard = ({ icon: Icon, label, value, unit }: { icon: React.ElementType,
   </div>
 );
 
-const PondDetailPage = ({ params }: { params: { id: string } }) => {
-  // Find the pond from the mock data using the id from the URL.
-  const pond = MOCK_PONDS_DATA.find(p => p.id === params.id);
+const formatDate = (value?: string | null) => {
+  if (!value) return 'N/A';
+  const date = new Date(value);
+  return isNaN(date.getTime()) ? String(value) : date.toLocaleDateString();
+};
+
+type PondDetailPageProps =
+  | { params: { id: string } }
+  | { params: Promise<{ id: string }> }
+  | Promise<{ params: { id: string } }>
+
+const resolveParams = async (props: PondDetailPageProps) => {
+  const resolvedProps = await props
+  const params = await (resolvedProps as any).params
+  return params as { id: string }
+}
+
+const PondDetailPage = async (props: PondDetailPageProps) => {
+  const params = await resolveParams(props)
+  const pond: Pond | null = await getPond(params.id).catch(() => null)
 
   if (!pond) {
     return (
@@ -82,48 +90,37 @@ const PondDetailPage = ({ params }: { params: { id: string } }) => {
           </div>
         </header>
 
-        {/* Key Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatCard icon={Fish} label="Current Stock" value={pond.currentStock.quantity.toLocaleString()} unit={pond.currentStock.species} />
           <StatCard icon={Thermometer} label="Temperature" value={pond.waterTemp} unit="°C" />
           <StatCard icon={Droplets} label="pH Level" value={pond.phLevel} />
-          <StatCard icon={Calendar} label="Last Harvest" value={pond.lastHarvestDate ? pond.lastHarvestDate.toLocaleDateString() : 'N/A'} />
+          <StatCard icon={Calendar} label="Last Harvest" value={formatDate(pond.lastHarvestDate)} />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Pond Information */}
           <div className="lg:col-span-1 bg-white rounded-lg shadow-md p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Pond Information</h2>
             <ul className="space-y-3 text-sm">
               <li className="flex justify-between"><span>ID:</span> <span className="font-mono text-gray-600">{pond.id}</span></li>
-              <li className="flex justify-between"><span>Dimensions:</span> <span className="font-medium">{pond.dimensions}</span></li>
-              <li className="flex justify-between"><span>Est. Volume:</span> <span className="font-medium">{pond.volume}</span></li>
-              <li className="flex justify-between"><span>Stock Species:</span> <span className="font-medium">{pond.currentStock.species}</span></li>
+              <li className="flex justify-between"><span>Location:</span> <span className="font-medium">{pond.location}</span></li>
+              <li className="flex justify-between"><span>Status:</span> <span className="font-medium">{pond.status}</span></li>
+              <li className="flex justify-between"><span>Species:</span> <span className="font-medium">{pond.currentStock.species}</span></li>
+              <li className="flex justify-between"><span>Quantity:</span> <span className="font-medium">{pond.currentStock.quantity.toLocaleString()}</span></li>
             </ul>
           </div>
 
-          {/* Recent Activity */}
-          <div className="lg:col-span-2 bg-white rounded-lg shadow-md">
-            <h2 className="text-xl font-bold text-gray-900 p-6 border-b border-gray-200">Recent Activity</h2>
-            {pond.recentActivity.length > 0 ? (
-              <ul className="divide-y divide-gray-200">
-                {pond.recentActivity.map(activity => (
-                  <li key={activity.id} className="p-4 hover:bg-gray-50 transition-colors">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="font-semibold text-gray-800">{activity.type}</p>
-                        <p className="text-sm text-gray-600">{activity.description}</p>
-                      </div>
-                      <p className="text-sm text-gray-500">{activity.timestamp}</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="p-6 text-center text-gray-500">
-                <p>No recent activity recorded for this pond.</p>
+          <div className="lg:col-span-2 bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Water Quality</h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm text-slate-500">Water Temperature</p>
+                <p className="mt-2 text-2xl font-semibold text-slate-900">{pond.waterTemp}°C</p>
               </div>
-            )}
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm text-slate-500">pH Level</p>
+                <p className="mt-2 text-2xl font-semibold text-slate-900">{pond.phLevel}</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>

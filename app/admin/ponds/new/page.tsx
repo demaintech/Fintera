@@ -1,13 +1,21 @@
-'use client'
+﻿'use client'
 
 import React, { useState, FormEvent } from 'react'
 import { CheckCircleIcon } from '@heroicons/react/24/solid'
 import Link from 'next/link'
+import { createPond, type PondStatus } from '@/lib/pond-api'
 
 const AddPondPage = () => {
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
-  const [status, setStatus] = useState<'Active' | 'Inactive' | 'Maintenance'>('Active');
+  const [status, setStatus] = useState<PondStatus>('Active');
+  const [pondType, setPondType] = useState('');
+  const [pondCapacity, setPondCapacity] = useState('');
+  const [speciesInPond, setSpeciesInPond] = useState('');
+  const [pondStockQuantity, setPondStockQuantity] = useState('');
+  const [lastHarvestDate, setLastHarvestDate] = useState('');
+  const [waterTemp, setWaterTemp] = useState('');
+  const [phLevel, setPhLevel] = useState('7');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState('');
@@ -16,22 +24,41 @@ const AddPondPage = () => {
     e.preventDefault();
     setError('');
 
-    if (!name || !location) {
-      setError('Pond Name and Location are required.');
+    if (
+      !name ||
+      !location ||
+      !pondType ||
+      !pondCapacity ||
+      !speciesInPond ||
+      !pondStockQuantity ||
+      !lastHarvestDate ||
+      !waterTemp
+    ) {
+      setError('All pond fields are required.');
       return;
     }
 
     setIsSubmitting(true);
 
-    // Simulate an API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    // In a real app, you would handle the API response here.
-    // For now, we'll just assume success.
-    console.log('Submitted:', { name, location, status });
-
-    setIsSubmitting(false);
-    setIsSuccess(true);
+    try {
+      await createPond({
+        name,
+        location,
+        status,
+        pondType,
+        pondCapacity: Number(pondCapacity),
+        speciesInPond,
+        pondStockQuantity: Number(pondStockQuantity),
+        lastHarvestDate,
+        waterTemp: Number(waterTemp),
+        phLevel: Number(phLevel),
+      });
+      setIsSuccess(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create pond');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleAddAnother = () => {
@@ -71,16 +98,12 @@ const AddPondPage = () => {
       <div className="bg-white rounded-xl shadow-lg p-6 md:p-8 w-full max-w-2xl">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Create a New Pond</h1>
-          <p className="text-gray-600 mt-2">
-            Fill in the details below to add a new pond to the system.
-          </p>
+          <p className="text-gray-600 mt-2">Fill in the details below to add a new pond to the system.</p>
         </div>
         
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-              Pond Name
-            </label>
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700">Pond Name</label>
             <input
               type="text"
               id="name"
@@ -93,9 +116,7 @@ const AddPondPage = () => {
           </div>
 
           <div>
-            <label htmlFor="location" className="block text-sm font-medium text-gray-700">
-              Location
-            </label>
+            <label htmlFor="location" className="block text-sm font-medium text-gray-700">Location</label>
             <input
               type="text"
               id="location"
@@ -108,13 +129,107 @@ const AddPondPage = () => {
           </div>
 
           <div>
-            <label htmlFor="status" className="block text-sm font-medium text-gray-700">
-              Initial Status
-            </label>
+            <label htmlFor="pondType" className="block text-sm font-medium text-gray-700">Pond Type</label>
+            <input
+              type="text"
+              id="pondType"
+              value={pondType}
+              onChange={(e) => setPondType(e.target.value)}
+              className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition"
+              placeholder="e.g., Earthen"
+              required
+            />
+          </div>
+
+          <div>
+            <label htmlFor="pondCapacity" className="block text-sm font-medium text-gray-700">Capacity</label>
+            <input
+              type="number"
+              id="pondCapacity"
+              value={pondCapacity}
+              onChange={(e) => setPondCapacity(e.target.value)}
+              className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition"
+              placeholder="e.g., 5000"
+              min="0"
+              required
+            />
+          </div>
+
+          <div>
+            <label htmlFor="speciesInPond" className="block text-sm font-medium text-gray-700">Species</label>
+            <input
+              type="text"
+              id="speciesInPond"
+              value={speciesInPond}
+              onChange={(e) => setSpeciesInPond(e.target.value)}
+              className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition"
+              placeholder="e.g., Tilapia"
+              required
+            />
+          </div>
+
+          <div>
+            <label htmlFor="pondStockQuantity" className="block text-sm font-medium text-gray-700">Stock Quantity</label>
+            <input
+              type="number"
+              id="pondStockQuantity"
+              value={pondStockQuantity}
+              onChange={(e) => setPondStockQuantity(e.target.value)}
+              className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition"
+              placeholder="e.g., 1200"
+              min="0"
+              required
+            />
+          </div>
+
+          <div>
+            <label htmlFor="lastHarvestDate" className="block text-sm font-medium text-gray-700">Last Harvest Date</label>
+            <input
+              type="date"
+              id="lastHarvestDate"
+              value={lastHarvestDate}
+              onChange={(e) => setLastHarvestDate(e.target.value)}
+              className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition"
+              required
+            />
+          </div>
+
+          <div>
+            <label htmlFor="waterTemp" className="block text-sm font-medium text-gray-700">Water Temp</label>
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              id="waterTemp"
+              value={waterTemp}
+              onChange={(e) => setWaterTemp(e.target.value)}
+              className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition"
+              placeholder="e.g., 28.5"
+              required
+            />
+          </div>
+
+          <div>
+            <label htmlFor="phLevel" className="block text-sm font-medium text-gray-700">pH Level</label>
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              id="phLevel"
+              value={phLevel}
+              onChange={(e) => setPhLevel(e.target.value)}
+              className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition"
+              placeholder="e.g., 7.2"
+              required
+            />
+          </div>
+
+          <div>
+            <label htmlFor="status" className="block text-sm font-medium text-gray-700">Initial Status</label>
             <select
               id="status"
               value={status}
-              onChange={(e) => setStatus(e.target.value as 'Active' | 'Inactive' | 'Maintenance')}
+              onChange={(e) => setStatus(e.target.value as PondStatus)}
               className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm rounded-md transition"
             >
               <option>Active</option>
@@ -126,9 +241,7 @@ const AddPondPage = () => {
           {error && <p className="text-sm text-red-600">{error}</p>}
 
           <div className="flex justify-end items-center gap-4 pt-4">
-            <Link href="/admin/ponds" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">
-              Cancel
-            </Link>
+            <Link href="/admin/ponds" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">Cancel</Link>
             <button
               type="submit"
               disabled={isSubmitting}

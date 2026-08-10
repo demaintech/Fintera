@@ -134,16 +134,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const storedUserRaw = localStorage.getItem("user");
     const storedPassword = localStorage.getItem("userPassword");
     const registeredUsers = getRegisteredUsers();
-    const isKnownAccount = registeredUsers.some((registeredUser) => normalizeEmail(registeredUser.email) === normalizedEmail && registeredUser.password === password);
-    const isStoredSessionMatch = Boolean(
-      storedUserRaw &&
-      storedPassword &&
-      normalizeEmail(JSON.parse(storedUserRaw).email || "") === normalizedEmail &&
-      storedPassword === password
-    );
 
-    if (!isKnownAccount && !isStoredSessionMatch) {
+    const matchingRegisteredUser = registeredUsers.find((registeredUser) => normalizeEmail(registeredUser.email) === normalizedEmail);
+    const storedSessionUser = storedUserRaw ? JSON.parse(storedUserRaw) : null;
+    const storedSessionEmailMatches = storedSessionUser && normalizeEmail(storedSessionUser.email || "") === normalizedEmail;
+
+    const isKnownAccount = Boolean(matchingRegisteredUser);
+    const isStoredSessionMatch = Boolean(storedSessionEmailMatches && storedPassword === password);
+    const hasMatchingPassword = Boolean(matchingRegisteredUser && matchingRegisteredUser.password === password);
+
+    if (!isKnownAccount) {
       const error = new Error("No account found for this email and password.");
+      (error as any).status = 401;
+      throw error;
+    }
+
+    if (!hasMatchingPassword && !isStoredSessionMatch) {
+      const error = new Error("Incorrect email or password.");
       (error as any).status = 401;
       throw error;
     }

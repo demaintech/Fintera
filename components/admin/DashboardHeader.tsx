@@ -113,10 +113,10 @@ const DashboardHeader = () => {
           </button>
 
           {isMenuOpen && (
-            <div className="absolute right-0 top-full mt-2 w-64 rounded-xl border border-gray-500 bg-background backdrop-blur-3xl p-2 shadow-lg z-50">
+            <div className="absolute right-0 top-full mt-2 w-64 rounded-xl border border-gray-500 bg-[rgba(0,0,0,30%)] backdrop-blur-3xl shadow-2x p-2 shadow-2xl z-50">
               <div className="px-3 py-2">
                 <p className="text-sm font-medium leading-none">{user?.name || 'User'}</p>
-                <p className="mt-1 text-xs leading-none text-muted-foreground">{user?.email}</p>
+                <p className="mt-1 text-xs leading-none text-muted-white">{user?.email}</p>
               </div>
               <div className="my-2 h-px bg-border" />
               <button
