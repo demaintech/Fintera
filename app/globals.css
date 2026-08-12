@@ -62,7 +62,7 @@
   --color-ring: hsl(var(--ring));
   --color-accent: hsl(var(--accent));
   --color-accent-foreground: hsl(var(--accent-foreground));
-  --font-sans: var(--font-sans);
+  --font-sans: var(--font-geist-sans);
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Courier New", monospace;
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);

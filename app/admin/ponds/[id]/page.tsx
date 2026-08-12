@@ -1,7 +1,11 @@
-﻿import React from 'react';
+'use client';
+
+import React, { useEffect, useState } from 'react';
 import { Droplets, Fish, Thermometer, Calendar, MapPin, ChevronLeft, Edit, Trash2 } from 'lucide-react';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { getPond, type Pond } from '@/lib/pond-api';
+import { useAuth } from '@/lib/auth-context';
 
 const statusColorMap: Record<string, string> = {
   Active: 'bg-green-100 text-green-800',
@@ -29,27 +33,44 @@ const formatDate = (value?: string | null) => {
   return isNaN(date.getTime()) ? String(value) : date.toLocaleDateString();
 };
 
-type PondDetailPageProps =
-  | { params: { id: string } }
-  | { params: Promise<{ id: string }> }
-  | Promise<{ params: { id: string } }>
+const PondDetailPage = () => {
+  const params = useParams();
+  const id = Array.isArray(params.id) ? params.id[0] : params.id;
+  const { token } = useAuth();
 
-const resolveParams = async (props: PondDetailPageProps) => {
-  const resolvedProps = await props
-  const params = await (resolvedProps as any).params
-  return params as { id: string }
-}
+  const [pond, setPond] = useState<Pond | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
 
-const PondDetailPage = async (props: PondDetailPageProps) => {
-  const params = await resolveParams(props)
-  const pond: Pond | null = await getPond(params.id).catch(() => null)
+  useEffect(() => {
+    if (!id) return;
+    setIsLoading(true);
+    getPond(id, token)
+      .then((result) => {
+        if (!result) {
+          setNotFound(true);
+        } else {
+          setPond(result);
+        }
+      })
+      .catch(() => setNotFound(true))
+      .finally(() => setIsLoading(false));
+  }, [id, token]);
 
-  if (!pond) {
+  if (isLoading) {
+    return (
+      <div className="flex-1 p-8 flex items-center justify-center">
+        <p className="text-gray-500">Loading pond details...</p>
+      </div>
+    );
+  }
+
+  if (notFound || !pond) {
     return (
       <div className="flex-1 p-8 flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold">Pond Not Found</h1>
-          <p className="text-gray-500 mt-2">The pond with ID "{params.id}" could not be found.</p>
+          <p className="text-gray-500 mt-2">The pond with ID &quot;{id}&quot; could not be found.</p>
           <Link href="/admin/ponds" className="mt-4 inline-block bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
             Back to Ponds List
           </Link>

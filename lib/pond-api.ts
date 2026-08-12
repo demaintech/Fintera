@@ -37,6 +37,9 @@ export type PondUpdatePayload = Partial<PondCreatePayload>
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://fintera-aquaculture-bckend.onrender.com'
 const PONDS_ENDPOINT = `${API_BASE}/ponds`
 
+const authHeaders = (token?: string | null): Record<string, string> =>
+  token ? { Authorization: `Bearer ${token}` } : {}
+
 const humanizeDetailMessage = (rawMessage: string): string => {
   if (!rawMessage) return 'Invalid value.'
   if (rawMessage.includes('Field required')) return 'is required.'
@@ -82,11 +85,6 @@ const responseToError = async (response: Response) => {
   throw new Error(message)
 }
 
-const serializeApiValue = (value: unknown) => {
-  if (value == null) return undefined
-  return typeof value === 'number' ? String(value) : value
-}
-
 const normalizePond = (input: any): Pond => {
   const rawStatus = String(input.status ?? input.pond_status ?? 'Inactive')
   const status = ['Active', 'Inactive', 'Maintenance'].includes(rawStatus)
@@ -115,21 +113,27 @@ const normalizePond = (input: any): Pond => {
   }
 }
 
-const mapPondPayloadToApi = (payload: PondCreatePayload | PondUpdatePayload) => ({
-  pond_name: serializeApiValue(payload.name),
-  pond_location: serializeApiValue(payload.location),
-  pond_status: serializeApiValue(payload.status),
-  pond_type: serializeApiValue(payload.pondType),
-  pond_capacity: serializeApiValue(payload.pondCapacity),
-  species_in_pond: serializeApiValue(payload.speciesInPond),
-  pond_stock_quantity: serializeApiValue(payload.pondStockQuantity),
-  last_harvest_date: serializeApiValue(payload.lastHarvestDate),
-  water_temp: serializeApiValue(payload.waterTemp),
-  ph_level: serializeApiValue(payload.phLevel),
-})
+const mapPondPayloadToApi = (payload: PondCreatePayload | PondUpdatePayload) => {
+  const body: Record<string, unknown> = {}
 
-export const getPonds = async (): Promise<Pond[]> => {
-  const response = await fetch(PONDS_ENDPOINT)
+  if (payload.name != null) body.pond_name = String(payload.name)
+  if (payload.location != null) body.pond_location = String(payload.location)
+  if (payload.status != null) body.pond_status = String(payload.status)
+  if (payload.pondType != null) body.pond_type = String(payload.pondType)
+  if (payload.pondCapacity != null) body.pond_capacity = Number(payload.pondCapacity)
+  if (payload.speciesInPond != null) body.species_in_pond = String(payload.speciesInPond)
+  if (payload.pondStockQuantity != null) body.pond_stock_quantity = Number(payload.pondStockQuantity)
+  if (payload.lastHarvestDate != null) body.last_harvest_date = String(payload.lastHarvestDate)
+  if (payload.waterTemp != null) body.water_temp = String(payload.waterTemp)
+  // ph_level is not in the backend schema — omit it
+
+  return body
+}
+
+export const getPonds = async (token?: string | null): Promise<Pond[]> => {
+  const response = await fetch(PONDS_ENDPOINT, {
+    headers: authHeaders(token),
+  })
   if (!response.ok) {
     await responseToError(response)
   }
@@ -141,8 +145,10 @@ export const getPonds = async (): Promise<Pond[]> => {
   return data.map(normalizePond).filter((pond) => !pond.isDeleted)
 }
 
-export const getPond = async (id: string): Promise<Pond | null> => {
-  const response = await fetch(`${PONDS_ENDPOINT}/${encodeURIComponent(id)}`)
+export const getPond = async (id: string, token?: string | null): Promise<Pond | null> => {
+  const response = await fetch(`${PONDS_ENDPOINT}/${encodeURIComponent(id)}`, {
+    headers: authHeaders(token),
+  })
 
   if (response.ok) {
     const pond = normalizePond(await response.json())
@@ -150,7 +156,7 @@ export const getPond = async (id: string): Promise<Pond | null> => {
   }
 
   if (response.status === 404 || response.status === 405) {
-    const ponds = await getPonds()
+    const ponds = await getPonds(token)
     return ponds.find((pond) => String(pond.id) === String(id)) ?? null
   }
 
@@ -158,11 +164,12 @@ export const getPond = async (id: string): Promise<Pond | null> => {
   throw new Error('Failed to load pond')
 }
 
-export const createPond = async (payload: PondCreatePayload): Promise<Pond> => {
+export const createPond = async (payload: PondCreatePayload, token?: string | null): Promise<Pond> => {
   const response = await fetch(PONDS_ENDPOINT, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...authHeaders(token),
     },
     body: JSON.stringify(mapPondPayloadToApi(payload)),
   })
@@ -172,11 +179,12 @@ export const createPond = async (payload: PondCreatePayload): Promise<Pond> => {
   return normalizePond(await response.json())
 }
 
-export const updatePond = async (id: string, payload: PondUpdatePayload): Promise<Pond> => {
+export const updatePond = async (id: string, payload: PondUpdatePayload, token?: string | null): Promise<Pond> => {
   const response = await fetch(`${PONDS_ENDPOINT}/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
+      ...authHeaders(token),
     },
     body: JSON.stringify(mapPondPayloadToApi(payload)),
   })
@@ -186,9 +194,10 @@ export const updatePond = async (id: string, payload: PondUpdatePayload): Promis
   return normalizePond(await response.json())
 }
 
-export const deletePond = async (id: string): Promise<void> => {
+export const deletePond = async (id: string, token?: string | null): Promise<void> => {
   const response = await fetch(`${PONDS_ENDPOINT}/${encodeURIComponent(id)}`, {
     method: 'DELETE',
+    headers: authHeaders(token),
   })
   if (!response.ok) {
     await responseToError(response)

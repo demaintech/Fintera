@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useEffect, useState, FormEvent } from 'react';
 import { PlusCircle, Droplets, Thermometer, Fish, Calendar, MapPin, MoreHorizontal } from 'lucide-react';
@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { createPond, deletePond, getPonds, updatePond, type Pond, type PondStatus } from '@/lib/pond-api';
+import { useAuth } from '@/lib/auth-context';
 
 const statusColors: Record<PondStatus, string> = {
   Active: 'bg-green-100 text-green-800 border-green-200',
@@ -48,6 +49,7 @@ const formatDate = (value?: string | null) => {
 
 const PondsPage = () => {
   const router = useRouter();
+  const { token } = useAuth();
   const [ponds, setPonds] = useState<Pond[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isActionLoading, setIsActionLoading] = useState(false);
@@ -78,7 +80,7 @@ const PondsPage = () => {
     setIsLoading(true);
 
     try {
-      const fetched = await getPonds();
+      const fetched = await getPonds(token);
       setPonds(fetched);
     } catch (error) {
       setFetchError(error instanceof Error ? error.message : 'Failed to load ponds');
@@ -144,7 +146,7 @@ const PondsPage = () => {
         lastHarvestDate: createLastHarvestDate,
         waterTemp: Number(createWaterTemp),
         phLevel: Number(createPhLevel),
-      });
+      }, token);
       setPonds((prev) => [created, ...prev]);
       setIsCreateDialogOpen(false);
       resetCreateForm();
@@ -170,7 +172,7 @@ const PondsPage = () => {
         name: editName,
         location: editLocation,
         status: editStatus,
-      });
+      }, token);
       setPonds((prev) => prev.map((pond) => (pond.id === updated.id ? updated : pond)));
       setIsEditDialogOpen(false);
       resetEditForm();
@@ -195,7 +197,7 @@ const PondsPage = () => {
 
     setIsActionLoading(true);
     try {
-      await deletePond(pond.id);
+      await deletePond(pond.id, token);
       setPonds((prev) => prev.filter((item) => item.id !== pond.id));
     } catch (error) {
       setFetchError(error instanceof Error ? error.message : 'Failed to delete pond');
@@ -239,39 +241,39 @@ const PondsPage = () => {
                 <div className="grid gap-4 py-4">
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="name" className="text-right">Name</Label>
-                    <Input id="name" value={createName} onChange={(e) => setCreateName(e.target.value)} className="col-span-3 rounded-sm h-11" placeholder="e.g., Alpha-3" />
+                    <Input id="name" value={createName} onChange={(e) => setCreateName(e.target.value)} className="text-gray-800 col-span-3 rounded-sm h-11" placeholder="e.g., Alpha-3" />
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="location" className="text-right">Location</Label>
-                    <Input id="location" value={createLocation} onChange={(e) => setCreateLocation(e.target.value)} className="col-span-3 rounded-sm h-11" placeholder="e.g., South Sector" />
+                    <Input id="location" value={createLocation} onChange={(e) => setCreateLocation(e.target.value)} className="text-gray-800 col-span-3 rounded-sm h-11" placeholder="e.g., South Sector" />
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="type" className="text-right">Pond Type</Label>
-                    <Input id="type" value={createPondType} onChange={(e) => setCreatePondType(e.target.value)} className="col-span-3 rounded-sm h-11" placeholder="e.g., Earthen" />
+                    <Input id="type" value={createPondType} onChange={(e) => setCreatePondType(e.target.value)} className="text-gray-800 col-span-3 rounded-sm h-11" placeholder="e.g., Earthen" />
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="capacity" className="text-right">Capacity</Label>
-                    <Input id="capacity" type="number" min="0" value={createPondCapacity} onChange={(e) => setCreatePondCapacity(e.target.value)} className="col-span-3 rounded-sm h-11" placeholder="e.g., 5000" />
+                    <Input id="capacity" type="number" min="0" value={createPondCapacity} onChange={(e) => setCreatePondCapacity(e.target.value)} className="text-gray-800 col-span-3 rounded-sm h-11" placeholder="e.g., 5000" />
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="species" className="text-right">Species</Label>
-                    <Input id="species" value={createSpeciesInPond} onChange={(e) => setCreateSpeciesInPond(e.target.value)} className="col-span-3 rounded-sm h-11" placeholder="e.g., Tilapia" />
+                    <Input id="species" value={createSpeciesInPond} onChange={(e) => setCreateSpeciesInPond(e.target.value)} className="text-gray-800 col-span-3 rounded-sm h-11" placeholder="e.g., Tilapia" />
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="stockQuantity" className="text-right">Stock Quantity</Label>
-                    <Input id="stockQuantity" type="number" min="0" value={createPondStockQuantity} onChange={(e) => setCreatePondStockQuantity(e.target.value)} className="col-span-3 rounded-sm h-11" placeholder="e.g., 1200" />
+                    <Input id="stockQuantity" type="number" min="0" value={createPondStockQuantity} onChange={(e) => setCreatePondStockQuantity(e.target.value)} className="text-gray-800 col-span-3 rounded-sm h-11" placeholder="e.g., 1200" />
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="lastHarvestDate" className="text-right">Last Harvest</Label>
-                    <Input id="lastHarvestDate" type="date" value={createLastHarvestDate} onChange={(e) => setCreateLastHarvestDate(e.target.value)} className="col-span-3 rounded-sm h-11" />
+                    <Input id="lastHarvestDate" type="date" value={createLastHarvestDate} onChange={(e) => setCreateLastHarvestDate(e.target.value)} className="text-gray-800 col-span-3 rounded-sm h-11" />
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="waterTemp" className="text-right">Water Temp</Label>
-                    <Input id="waterTemp" type="number" step="0.1" min="0" value={createWaterTemp} onChange={(e) => setCreateWaterTemp(e.target.value)} className="col-span-3 rounded-sm h-11" placeholder="e.g., 28.5" />
+                    <Input id="waterTemp" type="number" step="0.1" min="0" value={createWaterTemp} onChange={(e) => setCreateWaterTemp(e.target.value)} className="text-gray-800 col-span-3 rounded-sm h-11" placeholder="e.g., 28.5" />
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="phLevel" className="text-right">pH Level</Label>
-                    <Input id="phLevel" type="number" step="0.1" min="0" value={createPhLevel} onChange={(e) => setCreatePhLevel(e.target.value)} className="col-span-3 rounded-sm h-11" placeholder="e.g., 7.2" />
+                    <Input id="phLevel" type="number" step="0.1" min="0" value={createPhLevel} onChange={(e) => setCreatePhLevel(e.target.value)} className="text-gray-800 col-span-3 rounded-sm h-11" placeholder="e.g., 7.2" />
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="status" className="text-right">Status</Label>

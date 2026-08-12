@@ -131,29 +131,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (email: string, password: string) => {
     const normalizedEmail = normalizeEmail(email);
-    const storedUserRaw = localStorage.getItem("user");
-    const storedPassword = localStorage.getItem("userPassword");
-    const registeredUsers = getRegisteredUsers();
-
-    const matchingRegisteredUser = registeredUsers.find((registeredUser) => normalizeEmail(registeredUser.email) === normalizedEmail);
-    const storedSessionUser = storedUserRaw ? JSON.parse(storedUserRaw) : null;
-    const storedSessionEmailMatches = storedSessionUser && normalizeEmail(storedSessionUser.email || "") === normalizedEmail;
-
-    const isKnownAccount = Boolean(matchingRegisteredUser);
-    const isStoredSessionMatch = Boolean(storedSessionEmailMatches && storedPassword === password);
-    const hasMatchingPassword = Boolean(matchingRegisteredUser && matchingRegisteredUser.password === password);
-
-    if (!isKnownAccount) {
-      const error = new Error("No account found for this email and password.");
-      (error as any).status = 401;
-      throw error;
-    }
-
-    if (!hasMatchingPassword && !isStoredSessionMatch) {
-      const error = new Error("Incorrect email or password.");
-      (error as any).status = 401;
-      throw error;
-    }
 
     const formData = new URLSearchParams();
     formData.append("username", normalizedEmail);
@@ -292,7 +269,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (typeof data.detail === "string") {
           errorMessage = data.detail;
         } else if (Array.isArray(data.detail) && data.detail.length > 0) {
-          errorMessage = data.detail.map((d: any) => d.msg).join(", ");
+          // Surface the first meaningful detail message from the backend
+          const firstDetail = data.detail[0];
+          errorMessage = typeof firstDetail === "string"
+            ? firstDetail
+            : firstDetail?.msg ?? "Signup failed";
         }
       } else if (data && (data.message || data.error)) {
         errorMessage = data.message || data.error;

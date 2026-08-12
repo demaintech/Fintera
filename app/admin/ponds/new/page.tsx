@@ -1,11 +1,13 @@
-﻿'use client'
+'use client'
 
 import React, { useState, FormEvent } from 'react'
 import { CheckCircleIcon } from '@heroicons/react/24/solid'
 import Link from 'next/link'
 import { createPond, type PondStatus } from '@/lib/pond-api'
+import { useAuth } from '@/lib/auth-context'
 
 const AddPondPage = () => {
+  const { token } = useAuth();
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
   const [status, setStatus] = useState<PondStatus>('Active');
@@ -52,7 +54,7 @@ const AddPondPage = () => {
         lastHarvestDate,
         waterTemp: Number(waterTemp),
         phLevel: Number(phLevel),
-      });
+      }, token);
       setIsSuccess(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create pond');
@@ -109,7 +111,7 @@ const AddPondPage = () => {
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition"
+              className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition text-gray-800"
               placeholder="e.g., Main Koi Pond"
               required
             />
@@ -122,7 +124,7 @@ const AddPondPage = () => {
               id="location"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition"
+              className="text-gray-800 mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition"
               placeholder="e.g., Central Garden"
               required
             />
@@ -135,7 +137,7 @@ const AddPondPage = () => {
               id="pondType"
               value={pondType}
               onChange={(e) => setPondType(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition"
+              className="text-gray-800 mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition"
               placeholder="e.g., Earthen"
               required
             />
@@ -148,7 +150,7 @@ const AddPondPage = () => {
               id="pondCapacity"
               value={pondCapacity}
               onChange={(e) => setPondCapacity(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition"
+              className="text-gray-800 mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition"
               placeholder="e.g., 5000"
               min="0"
               required
@@ -162,7 +164,7 @@ const AddPondPage = () => {
               id="speciesInPond"
               value={speciesInPond}
               onChange={(e) => setSpeciesInPond(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition"
+              className="text-gray-800 mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition"
               placeholder="e.g., Tilapia"
               required
             />
@@ -175,7 +177,7 @@ const AddPondPage = () => {
               id="pondStockQuantity"
               value={pondStockQuantity}
               onChange={(e) => setPondStockQuantity(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition"
+              className="text-gray-800 mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition"
               placeholder="e.g., 1200"
               min="0"
               required
@@ -189,7 +191,7 @@ const AddPondPage = () => {
               id="lastHarvestDate"
               value={lastHarvestDate}
               onChange={(e) => setLastHarvestDate(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition"
+              className="text-gray-800 mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition"
               required
             />
           </div>
@@ -203,7 +205,7 @@ const AddPondPage = () => {
               id="waterTemp"
               value={waterTemp}
               onChange={(e) => setWaterTemp(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition"
+              className="text-gray-800 mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition"
               placeholder="e.g., 28.5"
               required
             />
@@ -218,7 +220,7 @@ const AddPondPage = () => {
               id="phLevel"
               value={phLevel}
               onChange={(e) => setPhLevel(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition"
+              className="text-gray-800 mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition"
               placeholder="e.g., 7.2"
               required
             />
@@ -230,7 +232,7 @@ const AddPondPage = () => {
               id="status"
               value={status}
               onChange={(e) => setStatus(e.target.value as PondStatus)}
-              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm rounded-md transition"
+              className="text-gray-800 mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm rounded-md transition"
             >
               <option>Active</option>
               <option>Inactive</option>
