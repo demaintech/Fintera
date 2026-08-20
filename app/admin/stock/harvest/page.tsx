@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, FormEvent } from 'react';
+import React, { useState, FormEvent, useEffect } from 'react';
 import { Anchor, Scale, Fish, ListChecks, PlusCircle } from 'lucide-react';
+import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -34,6 +35,8 @@ type HarvestRecord = {
   recordedBy: string;
 };
 
+const API_BASE = 'https://fintera-aquaculture-bckend.onrender.com';
+
 const mockHarvestRecords: HarvestRecord[] = [
   { id: 'HARV-001', pondName: 'Alpha-1', species: 'Tilapia', quantity: 1200, averageWeightKg: 0.8, totalWeightKg: 960, harvestDate: '2023-10-15', method: 'Netting', recordedBy: 'Alex Ray' },
   { id: 'HARV-002', pondName: 'Bravo-2', species: 'Catfish', quantity: 800, averageWeightKg: 1.2, totalWeightKg: 960, harvestDate: '2023-09-20', method: 'Draining', recordedBy: 'Mia Wong' },
@@ -43,6 +46,9 @@ const mockHarvestRecords: HarvestRecord[] = [
 
 const HarvestPage = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [harvestRecords, setHarvestRecords] = useState<HarvestRecord[]>(mockHarvestRecords);
+  const { token } = useAuth();
+
   const [formState, setFormState] = useState({
     pondName: '',
     species: '',
@@ -53,6 +59,7 @@ const HarvestPage = () => {
     recordedBy: '',
   });
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -72,16 +79,96 @@ const HarvestPage = () => {
       setError('Please fill out all fields.');
       return;
     }
-    console.log('New Harvest Record:', formState);
-    // API call to save the data would go here.
-    setIsDialogOpen(false);
+    const quantityNum = Number(formState.quantity);
+    const avgWeightNum = Number(formState.averageWeightKg);
+    if (Number.isNaN(quantityNum) || Number.isNaN(avgWeightNum)) {
+      setError('Quantity and Avg. Weight must be valid numbers.');
+      return;
+    }
+
+    const payload = {
+      pondName: formState.pondName,
+      species: formState.species,
+      quantity: quantityNum,
+      averageWeightKg: avgWeightNum,
+      totalWeightKg: +(quantityNum * avgWeightNum).toFixed(3),
+      harvestDate: formState.harvestDate,
+      method: formState.method,
+      recordedBy: formState.recordedBy,
+    };
+
+    try {
+      setLoading(true);
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const res = await fetch(`${API_BASE}/harvest`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Failed to save: ${res.status} ${text}`);
+      }
+      // optimistic refresh
+      await fetchHarvestRecords();
+      setIsDialogOpen(false);
+      setFormState({ pondName: '', species: '', quantity: '', averageWeightKg: '', harvestDate: '', method: 'Netting' as HarvestRecord['method'], recordedBy: '' });
+    } catch (err: any) {
+      setError(err?.message || 'Failed to save record');
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // Fetch records from API
+  const fetchHarvestRecords = async () => {
+    try {
+      setLoading(true);
+      const headers: Record<string, string> = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const res = await fetch(`${API_BASE}/harvest`, { headers, credentials: 'include' });
+      if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
+      const data = await res.json();
+      // Map API response to HarvestRecord[] defensively
+      const mapped: HarvestRecord[] = (Array.isArray(data) ? data : []).map((item: any) => {
+        const id = item.id ?? item._id ?? item.recordId ?? `api-${Math.random().toString(36).slice(2, 9)}`;
+        const pondName = item.pondName ?? item.pond ?? item.pond_name ?? '';
+        const species = item.species ?? item.specie ?? item.speciesName ?? '';
+        const quantity = Number(item.quantity ?? item.qty ?? 0) || 0;
+        const averageWeightKg = Number(item.averageWeightKg ?? item.avgWeight ?? item.average_weight ?? 0) || 0;
+        const totalWeightKg = Number(item.totalWeightKg ?? item.total_weight ?? (quantity * averageWeightKg)) || 0;
+        const harvestDate = item.harvestDate ?? item.date ?? item.createdAt ?? '';
+        const method = (item.method ?? item.harvestMethod ?? 'Netting') as HarvestRecord['method'];
+        const recordedBy = item.recordedBy ?? item.recorded_by ?? item.user ?? '';
+        return { id: String(id), pondName, species, quantity, averageWeightKg, totalWeightKg, harvestDate, method, recordedBy };
+      });
+      setHarvestRecords(mapped);
+    } catch (err) {
+      // keep existing mock data on failure and surface error for user
+      console.error('Failed to fetch harvest records', err);
+      const msg = (err as any)?.message ?? String(err);
+      if (msg.includes('401')) {
+        setError('Unauthorized: please sign in to load harvest records.');
+      } else {
+        setError('Failed to load harvest records from server. Showing local data.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchHarvestRecords();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // --- KPI Calculations ---
-  const totalHarvestWeight = mockHarvestRecords.reduce((sum, r) => sum + r.totalWeightKg, 0);
-  const totalHarvestCount = mockHarvestRecords.reduce((sum, r) => sum + r.quantity, 0);
-  const averageHarvestWeight = totalHarvestWeight / mockHarvestRecords.length || 0;
-  const totalRecords = mockHarvestRecords.length;
+  const totalHarvestWeight = harvestRecords.reduce((sum, r) => sum + (Number(r.totalWeightKg) || 0), 0);
+  const totalHarvestCount = harvestRecords.reduce((sum, r) => sum + (Number(r.quantity) || 0), 0);
+  const averageHarvestWeight = totalHarvestCount > 0 ? totalHarvestWeight / totalHarvestCount : 0; // avg per fish
+  const totalRecords = harvestRecords.length;
 
   const kpiCards = [
     { title: "Total Harvested Weight", value: `${totalHarvestWeight.toLocaleString()} kg`, icon: Anchor, color: "text-blue-600", bgColor: "bg-blue-500/10" },
@@ -129,6 +216,12 @@ const HarvestPage = () => {
         </Dialog>
       </header>
 
+      {error && !isDialogOpen && (
+        <div className="mb-4 p-3 rounded-md bg-yellow-50 border border-yellow-200 text-yellow-800">
+          {error}
+        </div>
+      )}
+
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {kpiCards.map((card) => {
           const Icon = card.icon;
@@ -157,14 +250,14 @@ const HarvestPage = () => {
             </tr>
           </thead>
           <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-200 dark:divide-slate-800">
-            {mockHarvestRecords.map((record) => (
+            {harvestRecords.map((record) => (
               <tr key={record.id} className="hover:bg-gray-50/50 dark:hover:bg-slate-800/50 transition-colors">
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{record.id}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-slate-400">{record.harvestDate}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-slate-300">{record.pondName}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-slate-400">{record.species}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-slate-400 text-center">{record.quantity.toLocaleString()}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-slate-400 text-center">{record.totalWeightKg.toLocaleString()}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-slate-400 text-center">{Number(record.totalWeightKg).toLocaleString()}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-slate-400">{record.method}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-slate-400">{record.recordedBy}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

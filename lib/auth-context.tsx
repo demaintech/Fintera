@@ -32,30 +32,8 @@ interface RegisteredUser {
   name?: string;
 }
 
-const getRegisteredUsers = (): RegisteredUser[] => {
-  if (typeof window === "undefined") {
-    return [];
-  }
-
-  try {
-    const stored = localStorage.getItem("registeredUsers");
-    if (!stored) {
-      return [];
-    }
-    const parsed = JSON.parse(stored);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-};
-
-const saveRegisteredUsers = (users: RegisteredUser[]) => {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  localStorage.setItem("registeredUsers", JSON.stringify(users));
-};
+// Note: registered users and plaintext passwords are no longer stored in localStorage.
+// Authentication should be handled by the backend API and tokens persisted only.
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
@@ -81,59 +59,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Initialize from localStorage on mount
+  // Initialize from localStorage on mount (only token and user are read)
   useEffect(() => {
     const storedToken = localStorage.getItem("token");
     const storedUser = localStorage.getItem("user");
-    const storedPassword = localStorage.getItem("userPassword");
 
     if (storedToken && storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser) as User;
-        if (storedPassword) {
-          parsedUser.password = storedPassword;
-        }
         setToken(storedToken);
         setUser(parsedUser);
       } catch (error) {
         console.error("Failed to parse stored user data:", error);
         localStorage.removeItem("token");
         localStorage.removeItem("user");
-        localStorage.removeItem("userPassword");
-      }
-    }
-
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser) as User;
-        const existingUsers = getRegisteredUsers();
-        const normalizedEmail = normalizeEmail(parsedUser.email);
-        const alreadyRegistered = existingUsers.some((registeredUser) => normalizeEmail(registeredUser.email) === normalizedEmail);
-        if (!alreadyRegistered && parsedUser.email && storedPassword) {
-          saveRegisteredUsers([
-            ...existingUsers,
-            {
-              email: normalizedEmail,
-              password: storedPassword,
-              name: parsedUser.name,
-            },
-          ]);
-        }
-      } catch {
-        // Ignore initialization issues and continue.
       }
     }
 
     setIsLoading(false);
   }, []);
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://fintera-aquaculture-bckend.onrender.com";
 
   const login = async (email: string, password: string) => {
+    const loginIdentifier = email.trim();
     const normalizedEmail = normalizeEmail(email);
 
     const formData = new URLSearchParams();
-    formData.append("username", normalizedEmail);
+    // send both username and email to accommodate backends that accept either
+    formData.append("username", loginIdentifier);
+    formData.append("email", normalizedEmail);
     formData.append("password", password);
 
     const response = await fetch(`${apiUrl}/login`, {
@@ -142,6 +97,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         "Content-Type": "application/x-www-form-urlencoded",
         "Accept": "application/json"
       },
+      // include cookies for cookie-based session authentication
+      credentials: "include",
       body: formData.toString(),
     });
 
@@ -205,7 +162,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       username: normalizedEmail,
       name: storedName || extractNameFromEmail(normalizedEmail),
       role: "admin",
-      password,
     };
 
     if (authToken) {
@@ -218,7 +174,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           username: decoded.sub,
           name: storedName || extractNameFromEmail(email.trim()),
           role: "admin",
-          password,
         };
       }
       localStorage.setItem("token", authToken);
@@ -231,16 +186,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setToken(sessionMarker);
     }
 
-    const existingUsers = getRegisteredUsers();
-    const updatedUsers = existingUsers.filter((registeredUser) => normalizeEmail(registeredUser.email) !== normalizedEmail);
-    updatedUsers.push({
-      email: normalizedEmail,
-      password,
-      name: loggedInUser.name,
-    });
-    saveRegisteredUsers(updatedUsers);
-
-    localStorage.setItem("userPassword", password);
+    // Persist only token and user; do NOT store passwords locally.
     localStorage.setItem("user", JSON.stringify(loggedInUser));
     setUser(loggedInUser);
 
@@ -295,7 +241,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       username: normalizedEmail,
       name: fullname.trim(),
       role: "admin",
-      password,
     };
 
     const decoded = decodeJwt(authToken);
@@ -310,16 +255,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       };
     }
 
-    const existingUsers = getRegisteredUsers();
-    const updatedUsers = existingUsers.filter((registeredUser) => normalizeEmail(registeredUser.email) !== normalizedEmail);
-    updatedUsers.push({
-      email: normalizedEmail,
-      password,
-      name: fullname.trim(),
-    });
-    saveRegisteredUsers(updatedUsers);
-
-    localStorage.setItem("userPassword", password);
+    // Persist only token and user; do NOT store passwords locally.
+    if (authToken) {
+      localStorage.setItem("token", authToken);
+    }
     localStorage.setItem("user", JSON.stringify(signedUpUser));
     setUser(signedUpUser);
 
