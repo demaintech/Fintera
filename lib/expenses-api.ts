@@ -18,19 +18,51 @@ export interface CreateExpensePayload {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+/**
+ * Safely retrieves the authentication token across common storage key names.
+ */
+const getStoredToken = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  return (
+    localStorage.getItem('token') ||
+    localStorage.getItem('access_token') ||
+    localStorage.getItem('auth_token')
+  );
+};
+
 async function fetchWithAuth(url: string, options: RequestInit = {}) {
-  const token = localStorage.getItem('access_token');
-  const headers = {
+  const token = getStoredToken();
+
+  if (!token) {
+    throw new Error('Not authenticated. Please log in.');
+  }
+
+  const headers: HeadersInit = {
     'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    Authorization: `Bearer ${token}`,
     ...options.headers,
   };
 
-  const response = await fetch(`${API_BASE_URL}${url}`, { ...options, headers });
+  const response = await fetch(`${API_BASE_URL}${url}`, {
+    ...options,
+    headers,
+  });
+
   if (!response.ok) {
+    if (response.status === 401) {
+      // Clear invalid/expired token from local storage
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('token');
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('auth_token');
+      }
+      throw new Error('Not authenticated. Session expired or token invalid.');
+    }
+
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || 'An API error occurred');
+    throw new Error(errorData.detail || `Request failed with status ${response.status}`);
   }
+
   return response.json();
 }
 

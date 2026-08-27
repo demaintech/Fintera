@@ -2,13 +2,11 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Bar, BarChart, CartesianGrid, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Cell
+  Bar, BarChart, CartesianGrid, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Cell
 } from 'recharts';
 import {
-  ArrowDownRight, ArrowUpRight, Calendar as CalendarIcon, CircleDollarSign, MoreHorizontal, Package, PlusCircle, Search, ShoppingCart, Users, Loader2, Trash2, X
+  ArrowDownRight, ArrowUpRight, CircleDollarSign, Package, PlusCircle, Search, ShoppingCart, Users, Loader2, Trash2, X
 } from 'lucide-react';
-import { addDays, format } from 'date-fns';
-import { DateRange } from 'react-day-picker';
 import { getSalesRecords, createSaleRecord, deleteSaleRecord, SaleRecord } from '@/lib/sales-api';
 
 type PaymentStatus = 'Paid' | 'Pending' | 'Partial' | 'Overdue';
@@ -112,12 +110,14 @@ export default function FinancePage() {
   }, []);
 
   const handleDelete = async (salesId: number) => {
-    if (!confirm('Are you sure you want to delete this sale record?')) return;
+    // Optimistic deletion: immediately purge from local UI without prompt modal
+    setSales((prev) => prev.filter((s) => s.salesId !== salesId));
+
     try {
       await deleteSaleRecord(salesId, getToken());
-      setSales((prev) => prev.filter((s) => s.salesId !== salesId));
     } catch (err: any) {
-      alert(err.message || 'Failed to delete sale.');
+      console.error('Failed to delete sale record:', err.message);
+      fetchSales(); // Rollback local state on backend error
     }
   };
 

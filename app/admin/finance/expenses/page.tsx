@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import {
-  Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis
+  Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis
 } from 'recharts';
 import {
-  ArrowDownRight, ArrowUpRight, Calendar as CalendarIcon, CircleDollarSign,
-  MoreHorizontal, PlusCircle, Search, FileText, Tag, AlertCircle, Clock, Loader2, Trash2, X
+  CircleDollarSign, PlusCircle, Search, FileText, Tag, Clock, Loader2, Trash2, X, AlertCircle
 } from 'lucide-react';
 import { addDays, format } from 'date-fns';
 import { DateRange } from 'react-day-picker';
@@ -22,7 +22,7 @@ const mockBudgets = {
 };
 
 const Card = ({ children, className }: { children: React.ReactNode, className?: string }) => (
-  <div className={`bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200/80 dark:border-slate-800 ${className}`}>
+  <div className={`bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200/80 dark:border-slate-800 ${className || ''}`}>
     {children}
   </div>
 );
@@ -36,7 +36,7 @@ const CardTitle = ({ children }: { children: React.ReactNode }) => (
 );
 
 const CardContent = ({ children, className }: { children: React.ReactNode, className?: string }) => (
-  <div className={`p-4 sm:p-6 ${className}`}>{children}</div>
+  <div className={`p-4 sm:p-6 ${className || ''}`}>{children}</div>
 );
 
 const Badge = ({ children, color }: { children: React.ReactNode, color: string }) => (
@@ -50,7 +50,7 @@ const Button = ({ children, variant = 'default', className, ...props }: { childr
     outline: "border border-gray-300 dark:border-slate-700 bg-transparent hover:bg-gray-100 dark:hover:bg-slate-800",
     ghost: "hover:bg-gray-100 dark:hover:bg-slate-800",
   };
-  return <button className={`${baseStyle} ${variantStyles[variant]} ${className}`} {...props}>{children}</button>;
+  return <button className={`${baseStyle} ${variantStyles[variant]} ${className || ''}`} {...props}>{children}</button>;
 };
 
 const Progress = ({ value, color }: { value: number, color: string }) => (
@@ -60,13 +60,15 @@ const Progress = ({ value, color }: { value: number, color: string }) => (
 );
 
 export default function ExpensesPage() {
+  const router = useRouter();
   const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [modalError, setModalError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState('all-expenses');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [date, setDate] = useState<DateRange | undefined>({ from: addDays(new Date(), -30), to: new Date() });
 
   const [formData, setFormData] = useState({
     date: format(new Date(), 'yyyy-MM-dd'),
@@ -83,7 +85,11 @@ export default function ExpensesPage() {
       setExpenses(data);
       setError(null);
     } catch (err: any) {
-      setError(err.message || 'Failed to load expenses.');
+      const msg = err.message || 'Failed to load expenses.';
+      setError(msg);
+      if (msg.toLowerCase().includes('log in') || msg.toLowerCase().includes('unauthorized')) {
+        router.push('/login');
+      }
     } finally {
       setLoading(false);
     }
@@ -95,6 +101,9 @@ export default function ExpensesPage() {
 
   const handleCreateExpense = async (e: React.FormEvent) => {
     e.preventDefault();
+    setModalError(null);
+    setSubmitting(true);
+
     try {
       await createExpense({
         ...formData,
@@ -104,7 +113,13 @@ export default function ExpensesPage() {
       setFormData({ date: format(new Date(), 'yyyy-MM-dd'), category: 'Feed', description: '', amount: '', status: 'Paid' });
       await loadExpenses();
     } catch (err: any) {
-      alert(err.message || 'Error submitting expense');
+      const msg = err.message || 'Error submitting expense';
+      setModalError(msg);
+      if (msg.toLowerCase().includes('log in') || msg.toLowerCase().includes('unauthorized')) {
+        setTimeout(() => router.push('/login'), 1500);
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -127,7 +142,7 @@ export default function ExpensesPage() {
 
   const kpis = useMemo(() => {
     const total = expenses.reduce((acc, curr) => acc + Number(curr.amount), 0);
-    const pending = expenses.filter(e => e.status.toLowerCase() === 'pending').reduce((acc, curr) => acc + Number(curr.amount), 0);
+    const pending = expenses.filter(e => e.status?.toLowerCase() === 'pending').reduce((acc, curr) => acc + Number(curr.amount), 0);
     
     const catMap: Record<string, number> = {};
     expenses.forEach(e => {
@@ -312,6 +327,14 @@ export default function ExpensesPage() {
           <div className="bg-white dark:bg-slate-900 rounded-lg p-6 w-full max-w-md shadow-xl border border-gray-200 dark:border-slate-800 relative">
             <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X className="w-5 h-5"/></button>
             <h2 className="text-xl font-bold mb-4">Add New Expense</h2>
+            
+            {modalError && (
+              <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md text-sm flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{modalError}</span>
+              </div>
+            )}
+
             <form onSubmit={handleCreateExpense} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Date</label>
@@ -342,7 +365,10 @@ export default function ExpensesPage() {
               </div>
               <div className="flex justify-end gap-2 pt-4">
                 <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-                <Button type="submit">Save Expense</Button>
+                <Button type="submit" disabled={submitting}>
+                  {submitting ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
+                  Save Expense
+                </Button>
               </div>
             </form>
           </div>

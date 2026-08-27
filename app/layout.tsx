@@ -5,10 +5,20 @@ import { AuthProvider } from "@/lib/auth-context";
 import { GeistSans } from "geist/font/sans";
 import { cn } from "@/lib/utils";
 
+// const geistSans = Geist({
+//   variable: '--font-geist-sans',
+//   subsets: ['latin'],
+//   display: 'swap',
+// });
+
+
 export const metadata: Metadata = {
   title: "Fintera",
   description: "Fish and pond management system for aquaculture farmers",
 };
+
+
+
 
 export default function RootLayout({
   children,
