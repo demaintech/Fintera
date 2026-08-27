@@ -19,6 +19,11 @@ import {
   FeedingScheduleItem,
   FeedingSchedulePayload,
 } from '@/lib/feeding-schedule-api';
+import {
+  FeedingStatus,
+  ScheduleFrequency,
+  type FeedingSchedule,
+} from '@/components/types';
 
 const FeedingSchedulePage = () => {
   const [schedules, setSchedules] = useState<FeedingScheduleItem[]>([]);
@@ -118,9 +123,26 @@ const FeedingSchedulePage = () => {
     );
   }
 
-  const formattedSchedules = schedules.map((s) => ({
-    ...s,
-    id: String(s.id),
+  const formattedSchedules: FeedingSchedule[] = schedules.map((schedule, index) => ({
+    id: String(schedule.id),
+    pondId: `pond-${index + 1}`,
+    pondName: schedule.pond_name,
+    feedTypeId: schedule.feed_type,
+    feedTypeName: schedule.feed_type,
+    frequency: schedule.frequency as ScheduleFrequency,
+    feedingTimes: [
+      {
+        id: `feeding-${schedule.id}`,
+        time: schedule.feeding_time,
+        quantity: Number(schedule.target_amount || 0),
+        unit: 'kg' as const,
+      },
+    ],
+    daysOfWeek: [0, 1, 2, 3, 4, 5, 6],
+    startDate: new Date(),
+    endDate: undefined,
+    notes: schedule.note || '',
+    status: schedule.is_active ? FeedingStatus.Active : FeedingStatus.Paused,
   }));
 
   return (

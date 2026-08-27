@@ -64,8 +64,8 @@ const getAuthToken = (): string | null => {
   return token.replace(/^"|"$/g, '').replace(/^Bearer\s+/i, '').trim();
 };
 
-const getAuthHeaders = (): HeadersInit => {
-  const token = getAuthToken();
+const getAuthHeaders = (tokenOverride?: string | null): HeadersInit => {
+  const token = tokenOverride || getAuthToken();
   if (!token) {
     throw new Error('Authentication required. Please log in.');
   }
@@ -104,10 +104,10 @@ export async function updateFeedInventory(id: string, payload: Partial<FeedInven
 /**
  * Fetch all feeding logs for the user.
  */
-export async function getFeedingLogs(): Promise<GetFeedingLogsResponse> {
+export async function getFeedingLogs(tokenOverride?: string | null): Promise<GetFeedingLogsResponse> {
   const response = await fetch(`${API_BASE_URL}/feeding_logs/`, {
     method: 'GET',
-    headers: getAuthHeaders(),
+    headers: getAuthHeaders(tokenOverride),
   });
 
   if (response.status === 401) {

@@ -1,6 +1,6 @@
 // lib/growth-api.ts
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://fintera-aquaculture-bckend.onrender.com';
 
 // --- Types ---
 
@@ -22,6 +22,7 @@ export interface GrowthRecord {
   avgWeightGrams: number;
   totalFeedUsedKg: number;
   feedConversionRate: number;
+  fcr?: number;
   specificGrowthRate: number;
   recordedBy: string;
 }
@@ -61,6 +62,7 @@ const handleResponse = async (response: Response) => {
 };
 
 const transformGrowthRecord = (data: BackendGrowthRecord): GrowthRecord => {
+  const feedConversionRate = Number(data.feed_conversion_rate ?? 1.2);
   return {
     id: data.id,
     pondName: data.pond_name,
@@ -69,7 +71,8 @@ const transformGrowthRecord = (data: BackendGrowthRecord): GrowthRecord => {
     sampleCount: data.sample_count,
     avgWeightGrams: data.av_weight,
     totalFeedUsedKg: data.total_feed_used,
-    feedConversionRate: data.feed_conversion_rate,
+    feedConversionRate,
+    fcr: feedConversionRate,
     specificGrowthRate: data.specific_growth_rate,
     recordedBy: data.recorded_by || 'System',
   };

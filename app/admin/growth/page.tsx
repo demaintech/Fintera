@@ -82,8 +82,8 @@ const GrowthPage = () => {
     setFormState((prev) => ({ ...prev, [id]: value }));
   };
 
-  const handlePondSelect = (value: string) => {
-    setFormState((prev) => ({ ...prev, pondName: value }));
+  const handlePondSelect = (value: string | null) => {
+    setFormState((prev) => ({ ...prev, pondName: value ?? "" }));
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -152,7 +152,7 @@ const GrowthPage = () => {
 
   const avgFCR =
     growthRecords.length > 0
-      ? (growthRecords.reduce((sum, r) => sum + (r.fcr || 1.2), 0) / growthRecords.length).toFixed(2)
+      ? (growthRecords.reduce((sum, r) => sum + (r.fcr ?? r.feedConversionRate ?? 1.2), 0) / growthRecords.length).toFixed(2)
       : "1.20";
 
   const feedEfficiencyPct = ((1 / Number(avgFCR || 1.2)) * 100).toFixed(1);

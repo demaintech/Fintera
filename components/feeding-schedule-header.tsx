@@ -41,9 +41,10 @@ import {
   MOCK_FEED_TYPES,
   FeedingTime,
 } from "./types";
+import type { FeedingSchedulePayload } from "@/lib/feeding-schedule-api";
 
 interface FeedingScheduleHeaderProps {
-  onAddSchedule: (newSchedule: Omit<FeedingSchedule, "id">) => void;
+  onAddSchedule: (newSchedule: FeedingSchedulePayload) => void | Promise<void>;
 }
 
 export const FeedingScheduleHeader = ({
@@ -111,23 +112,20 @@ export const FeedingScheduleHeader = ({
       return;
     }
 
-    const newSchedule: Omit<FeedingSchedule, "id"> = {
-      pondId,
-      pondName: pond.name,
-      feedTypeId,
-      feedTypeName: feedType.name,
-      frequency,
-      feedingTimes: feedingTimes.map((ft, i) => ({
-        id: `new-t-${i}`,
-        time: ft.time || "00:00",
-        quantity: ft.quantity || 0,
-        unit: ft.unit || "kg",
-      })),
-      daysOfWeek,
-      startDate,
-      endDate,
-      notes,
-      status: FeedingStatus.Active,
+    const totalTargetAmount = feedingTimes.reduce(
+      (total, time) => total + Number(time.quantity || 0),
+      0
+    );
+
+    const newSchedule: FeedingSchedulePayload = {
+      pond_name: pond.name,
+      species: "Tilapia",
+      feed_type: feedType.name,
+      target_amount: totalTargetAmount,
+      feeding_time: feedingTimes[0]?.time || "08:00",
+      frequency: frequency,
+      is_active: true,
+      note: notes || "",
     };
 
     // TODO: API call to create schedule

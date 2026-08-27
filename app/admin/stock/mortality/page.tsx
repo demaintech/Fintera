@@ -97,12 +97,14 @@ const MortalityPage = () => {
     setFormState((prev) => ({ ...prev, [id]: value }));
   };
 
-  const handleCauseSelect = (value: string) => {
-    setFormState((prev) => ({ ...prev, cause: value as MortalityCause }));
+  const handleCauseSelect = (value: string | null) => {
+    if (value) {
+      setFormState((prev) => ({ ...prev, cause: value as MortalityCause }));
+    }
   };
 
-  const handlePondSelect = (value: string) => {
-    setFormState((prev) => ({ ...prev, pondName: value }));
+  const handlePondSelect = (value: string | null) => {
+    setFormState((prev) => ({ ...prev, pondName: value ?? '' }));
   };
 
   const handleSubmit = async (e: FormEvent) => {

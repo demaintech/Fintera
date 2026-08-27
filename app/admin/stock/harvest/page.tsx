@@ -90,8 +90,8 @@ const HarvestPage = () => {
     }
   };
 
-  const handlePondSelect = (value: string) => {
-    setFormState((prev) => ({ ...prev, pondName: value }));
+  const handlePondSelect = (value: string | null) => {
+    setFormState((prev) => ({ ...prev, pondName: value ?? '' }));
   };
 
   const handleSubmit = async (e: FormEvent) => {

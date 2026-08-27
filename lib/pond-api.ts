@@ -69,6 +69,25 @@ export const getPonds = async (token: string | null): Promise<Pond[]> => {
   return list.map(transformPondData);
 };
 
+export const getPond = async (pondId: string, token: string | null): Promise<Pond | null> => {
+  const response = await fetch(`${API_URL}/ponds/${pondId}`, {
+    method: "GET",
+    headers: getHeaders(token),
+  });
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to fetch pond");
+  }
+
+  const result = await response.json();
+  return transformPondData(Array.isArray(result) ? result[0] : result);
+};
+
 export const createPond = async (input: CreatePondInput, token: string | null): Promise<Pond> => {
   // Mapping frontend properties to FastAPI backend pydantic schema (ponds)
   const payload = {

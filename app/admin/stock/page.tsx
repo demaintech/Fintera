@@ -101,8 +101,8 @@ const StockRecordsPage = () => {
     setFormState((prev) => ({ ...prev, [id]: value }));
   };
 
-  const handleSelectChange = (id: string, value: string) => {
-    setFormState((prev) => ({ ...prev, [id]: value }));
+  const handleSelectChange = (id: string, value: string | null) => {
+    setFormState((prev) => ({ ...prev, [id]: value ?? '' }));
   };
 
   const handleSubmit = async (e: FormEvent) => {
