@@ -48,7 +48,6 @@ const GrowthPage = () => {
     sampleCount: "",
     avgWeightGrams: "",
     totalFeedUsedKg: "",
-    recordedBy: "",
   });
 
   useEffect(() => {
@@ -96,9 +95,14 @@ const GrowthPage = () => {
       return;
     }
 
-    const sampleCountNum = Number(formState.sampleCount);
-    const avgWeightNum = Number(formState.avgWeightGrams);
-    const feedUsedNum = Number(formState.totalFeedUsedKg);
+    const sampleCountNum = parseInt(formState.sampleCount, 10);
+    const avgWeightNum = parseFloat(formState.avgWeightGrams);
+    const feedUsedNum = parseFloat(formState.totalFeedUsedKg);
+
+    if (isNaN(sampleCountNum) || isNaN(avgWeightNum) || isNaN(feedUsedNum)) {
+      setError("Please enter valid numeric values for sampling figures.");
+      return;
+    }
 
     if (sampleCountNum <= 0 || avgWeightNum <= 0 || feedUsedNum < 0) {
       setError("Please enter valid positive numbers for sampling values.");
@@ -115,7 +119,6 @@ const GrowthPage = () => {
           sampleCount: sampleCountNum,
           avgWeightGrams: avgWeightNum,
           totalFeedUsedKg: feedUsedNum,
-          recordedBy: formState.recordedBy,
         },
         token
       );
@@ -129,7 +132,6 @@ const GrowthPage = () => {
         sampleCount: "",
         avgWeightGrams: "",
         totalFeedUsedKg: "",
-        recordedBy: "",
       });
     } catch (err: any) {
       setError(err?.message || "Failed to save sampling record");
@@ -208,9 +210,11 @@ const GrowthPage = () => {
         </div>
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger render={<Button className="bg-primary text-primary-foreground h-11 px-4 py-2 rounded-lg shadow-sm hover:opacity-90 transition-all flex items-center justify-center gap-2" />}>
-            <PlusCircle className="w-4 h-4" />
-            <span>Record New Sampling</span>
+          <DialogTrigger asChild>
+            <Button className="bg-primary text-primary-foreground h-11 px-4 py-2 rounded-lg shadow-sm hover:opacity-90 transition-all flex items-center justify-center gap-2">
+              <PlusCircle className="w-4 h-4" />
+              <span>Record New Sampling</span>
+            </Button>
           </DialogTrigger>
           
           <DialogContent className="sm:max-w-xl p-6">
@@ -302,18 +306,6 @@ const GrowthPage = () => {
                     onChange={handleInputChange}
                     className="col-span-3 rounded-md h-11"
                     placeholder="e.g., 120"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="recordedBy" className="text-right">
-                    Recorded By
-                  </Label>
-                  <Input
-                    id="recordedBy"
-                    value={formState.recordedBy}
-                    onChange={handleInputChange}
-                    className="col-span-3 rounded-md h-11"
-                    placeholder="e.g., Alex Johnson"
                   />
                 </div>
                 {error && <p className="col-span-4 text-sm text-red-600 text-center">{error}</p>}

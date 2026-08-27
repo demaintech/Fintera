@@ -1,15 +1,8 @@
-export interface GrowthRecord {
-  id: string;
-  pondName: string;
-  species: string;
-  sampleDate: string;
-  sampleCount: number;
-  avgWeightGrams: number;
-  totalFeedUsedKg: number;
-  fcr: number;
-  sgr: number;
-  recordedBy: string;
-}
+// lib/growth-api.ts
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+// --- Types ---
 
 export interface CreateGrowthInput {
   pondName: string;
@@ -18,65 +11,81 @@ export interface CreateGrowthInput {
   sampleCount: number;
   avgWeightGrams: number;
   totalFeedUsedKg: number;
+}
+
+export interface GrowthRecord {
+  id: string;
+  pondName: string;
+  species: string;
+  sampleDate: string;
+  sampleCount: number;
+  avgWeightGrams: number;
+  totalFeedUsedKg: number;
+  feedConversionRate: number;
+  specificGrowthRate: number;
   recordedBy: string;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://fintera-aquaculture-bckend.onrender.com';
+// Backend DB Schema representation
+interface BackendGrowthRecord {
+  id: string;
+  pond_name: string;
+  species: string;
+  sample_date: string;
+  sample_count: number;
+  av_weight: number;
+  total_feed_used: number;
+  feed_conversion_rate: number;
+  specific_growth_rate: number;
+  recorded_by?: string;
+}
 
-const getHeaders = (token: string | null): Record<string, string> => {
-  const headers: Record<string, string> = {
+// --- Helpers ---
+
+const getHeaders = (token: string | null): HeadersInit => {
+  const headers: HeadersInit = {
     'Content-Type': 'application/json',
   };
-
-  if (token && token !== 'null' && token !== 'undefined') {
-    headers['Authorization'] = `Bearer ${token.trim()}`;
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
   }
-
   return headers;
 };
 
-const transformGrowthRecord = (raw: any): GrowthRecord => ({
-  id: String(raw.id ?? raw._id ?? `growth-${Math.random().toString(36).substring(2, 9)}`),
-  pondName: raw.pond_name ?? raw.pondName ?? raw.pond ?? 'N/A',
-  species: raw.species ?? raw.species_name ?? 'N/A',
-  sampleDate: raw.sample_date ?? raw.sampleDate ?? raw.date ?? new Date().toISOString().split('T')[0],
-  sampleCount: Number(raw.sample_count ?? raw.sampleCount ?? 0),
-  avgWeightGrams: Number(raw.avg_weight_grams ?? raw.avgWeightGrams ?? 0),
-  totalFeedUsedKg: Number(raw.total_feed_used_kg ?? raw.totalFeedUsedKg ?? 0),
-  fcr: Number(raw.fcr ?? 0),
-  sgr: Number(raw.sgr ?? 0),
-  recordedBy: raw.recorded_by ?? raw.recordedBy ?? 'System',
-});
-
-const handleResponse = async (res: Response) => {
-  if (res.status === 401) {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('token');
-      window.location.href = '/auth/login';
-    }
-    throw new Error('Could not validate credentials. Please log in again.');
+const handleResponse = async (response: Response) => {
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || `HTTP Error: ${response.status}`);
   }
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    const errorMessage = Array.isArray(errorData.detail)
-      ? errorData.detail.map((err: any) => `${err.loc?.slice(-1)[0]}: ${err.msg}`).join(', ')
-      : errorData.detail || `Request failed with status ${res.status}`;
-    throw new Error(errorMessage);
-  }
-
-  return res.json();
+  return response.json();
 };
 
+const transformGrowthRecord = (data: BackendGrowthRecord): GrowthRecord => {
+  return {
+    id: data.id,
+    pondName: data.pond_name,
+    species: data.species,
+    sampleDate: data.sample_date,
+    sampleCount: data.sample_count,
+    avgWeightGrams: data.av_weight,
+    totalFeedUsedKg: data.total_feed_used,
+    feedConversionRate: data.feed_conversion_rate,
+    specificGrowthRate: data.specific_growth_rate,
+    recordedBy: data.recorded_by || 'System',
+  };
+};
+
+// --- API Functions ---
+
 export const getGrowthRecords = async (token: string | null): Promise<GrowthRecord[]> => {
-  const res = await fetch(`${API_BASE}/growth`, {
+  const res = await fetch(`${API_BASE}/growth/`, {
     method: 'GET',
     headers: getHeaders(token),
   });
 
   const data = await handleResponse(res);
-  const list = Array.isArray(data) ? data : data.data || [];
-  return list.map(transformGrowthRecord);
+  const records: BackendGrowthRecord[] = Array.isArray(data) ? data : data.data || [];
+  return records.map(transformGrowthRecord);
 };
 
 export const createGrowthRecord = async (
@@ -88,17 +97,30 @@ export const createGrowthRecord = async (
     species: input.species,
     sample_date: input.sampleDate,
     sample_count: input.sampleCount,
-    avg_weight_grams: input.avgWeightGrams,
-    total_feed_used_kg: input.totalFeedUsedKg,
-    recorded_by: input.recordedBy,
+    av_weight: input.avgWeightGrams,
+    total_feed_used: input.totalFeedUsedKg,
   };
 
-  const res = await fetch(`${API_BASE}/growth`, {
+  const res = await fetch(`${API_BASE}/growth/`, {
     method: 'POST',
     headers: getHeaders(token),
     body: JSON.stringify(payload),
   });
 
   const data = await handleResponse(res);
-  return transformGrowthRecord(data);
+  // Unwraps single object responses cleanly
+  const recordData: BackendGrowthRecord = data.data ? data.data : data;
+  return transformGrowthRecord(recordData);
+};
+
+export const deleteGrowthRecord = async (
+  growthId: string,
+  token: string | null
+): Promise<void> => {
+  const res = await fetch(`${API_BASE}/growth/${growthId}`, {
+    method: 'DELETE',
+    headers: getHeaders(token),
+  });
+
+  await handleResponse(res);
 };
