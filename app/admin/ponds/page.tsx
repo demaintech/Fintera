@@ -49,7 +49,7 @@ const formatDate = (value?: string | null) => {
 
 const PondsPage = () => {
   const router = useRouter();
-  const { token } = useAuth();
+  const { token, isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const [ponds, setPonds] = useState<Pond[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isActionLoading, setIsActionLoading] = useState(false);
@@ -75,7 +75,15 @@ const PondsPage = () => {
   const [editStatus, setEditStatus] = useState<PondStatus>('Active');
   const [editError, setEditError] = useState('');
 
+  // Route protection
+  useEffect(() => {
+    if (!isAuthLoading && !isAuthenticated) {
+      router.push('/auth/login');
+    }
+  }, [isAuthenticated, isAuthLoading, router]);
+
   const loadPonds = async () => {
+    if (!token) return;
     setFetchError('');
     setIsLoading(true);
 
@@ -90,8 +98,10 @@ const PondsPage = () => {
   };
 
   useEffect(() => {
-    loadPonds();
-  }, []);
+    if (token) {
+      loadPonds();
+    }
+  }, [token]);
 
   const resetCreateForm = () => {
     setCreateName('');
@@ -210,12 +220,16 @@ const PondsPage = () => {
     router.push(`/admin/ponds/${encodeURIComponent(pond.id)}`);
   };
 
+  if (isAuthLoading) {
+    return <div className="p-8 text-center text-slate-500">Authenticating user...</div>;
+  }
+
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Ponds Management</h2>
-          <p className="text-muted-foreground">View and manage all your aquaculture ponds.</p>
+          <p className="text-muted-foreground">View and manage your isolated aquaculture ponds.</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -235,7 +249,7 @@ const PondsPage = () => {
             <DialogContent className="sm:max-w-xl p-4">
               <DialogHeader>
                 <DialogTitle>Create New Pond</DialogTitle>
-                <DialogDescription>Fill in the details below to add a new pond to the system.</DialogDescription>
+                <DialogDescription>Fill in the details below to add a new pond to your account.</DialogDescription>
               </DialogHeader>
               <form onSubmit={handleCreateSubmit}>
                 <div className="grid gap-4 py-4">
@@ -306,7 +320,7 @@ const PondsPage = () => {
       {isLoading ? (
         <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-slate-500">Loading ponds...</div>
       ) : ponds.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-slate-500">No ponds found. Use the Add Pond button to create one.</div>
+        <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-slate-500">No ponds found. Create one to get started.</div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {ponds.map((pond) => (

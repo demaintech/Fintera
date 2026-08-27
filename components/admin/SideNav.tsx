@@ -17,6 +17,7 @@ import {
   Boxes,
   CircleDollarSign,
   ChartColumnIncreasing,
+  Leaf
 } from "lucide-react";
 import { useState } from "react";
 
@@ -67,6 +68,15 @@ export const navSections = [
           { href: "/admin/feeding", label: "Feeding Schedule" },
           { href: "/admin/feeding/inventory", label: "Feed inventory" },
           { href: "/admin/feeding/logs", label: "Feeding logs" },
+        //   { href: "/admin/inventory/feeds", label: "" },
+        ],
+      },
+      {
+        label: "Growth Monitoring",
+        icon: Leaf,
+        children: [
+          { href: "/admin/growth", label: "Record Growth" },
+         
         //   { href: "/admin/inventory/feeds", label: "" },
         ],
       },

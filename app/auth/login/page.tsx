@@ -5,11 +5,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Mail, User, Lock, ArrowRight } from "lucide-react";
+import { Mail, Lock, ArrowRight } from "lucide-react";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useAuth } from "@/lib/auth-context";
-import { sanitizeInput, isValidEmail, isValidUsername, getErrorMessage } from "@/lib/validation";
+import { sanitizeInput, isValidEmail, getErrorMessage } from "@/lib/validation";
 
 const LoginPage = () => {
   const router = useRouter();
@@ -52,9 +52,8 @@ const LoginPage = () => {
 
     try {
       const sanitizedEmail = sanitizeInput(email);
-      const sanitizedPassword = sanitizeInput(password);
 
-      await login(sanitizedEmail, sanitizedPassword);
+      await login(sanitizedEmail, password);
 
       toast.success("Login successful! Redirecting you...", {
         position: "top-right",
@@ -92,20 +91,18 @@ const LoginPage = () => {
 
   return (
     <main className="relative min-h-screen w-full flex items-center justify-center p-4 overflow-hidden">
-      {/* Background Image */}
       <div className="absolute inset-0 z-[-1]">
         <Image
           src="/assets/images/signup.jpg"
           alt="Fish jumping out of the ocean"
-          layout="fill"
-          objectFit="cover"
+          fill
+          style={{ objectFit: "cover" }}
           quality={90}
           priority
         />
         <div className="absolute inset-0 bg-black/40" />
       </div>
 
-      {/* Login Form Card */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -120,7 +117,6 @@ const LoginPage = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-6">
-          {/* Error Message Display */}
           {error && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
@@ -131,7 +127,6 @@ const LoginPage = () => {
             </motion.div>
           )}
 
-          {/* Email Input */}
           <div className="relative">
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-foreground/50 transition-all duration-300" />
             <input
@@ -148,7 +143,6 @@ const LoginPage = () => {
             />
           </div>
 
-          {/* Password Input */}
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-foreground/50" />
             <input

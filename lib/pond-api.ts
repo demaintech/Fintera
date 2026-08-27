@@ -1,205 +1,136 @@
-export type PondStatus = 'Active' | 'Inactive' | 'Maintenance'
+export type PondStatus = 'Active' | 'Inactive' | 'Maintenance';
 
-export type PondCurrentStock = {
-  species: string
-  quantity: number
+export interface Pond {
+  id: string;
+  name: string;
+  location: string;
+  status: PondStatus;
+  pondType: string;
+  pondCapacity: number;
+  waterTemp: number;
+  phLevel: number;
+  lastHarvestDate: string | null;
+  currentStock: {
+    quantity: number;
+    species: string;
+  };
 }
 
-export type Pond = {
-  id: string
-  name: string
-  location: string
-  status: PondStatus
-  currentStock: PondCurrentStock
-  lastHarvestDate?: string | null
-  waterTemp: number
-  phLevel: number
-  pondType?: string
-  capacity?: number
-  isDeleted?: boolean
+export interface CreatePondInput {
+  name: string;
+  location: string;
+  status: PondStatus;
+  pondType: string;
+  pondCapacity: number;
+  speciesInPond: string;
+  pondStockQuantity: number;
+  lastHarvestDate: string;
+  waterTemp: number;
+  phLevel: number;
 }
 
-export type PondCreatePayload = {
-  name: string
-  location: string
-  status: PondStatus
-  pondType?: string
-  pondCapacity?: number
-  speciesInPond?: string
-  pondStockQuantity?: number
-  lastHarvestDate?: string | null
-  waterTemp?: number
-  phLevel?: number
-}
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://fintera-aquaculture-bckend.onrender.com";
 
-export type PondUpdatePayload = Partial<PondCreatePayload>
+const getHeaders = (token: string | null) => ({
+  "Content-Type": "application/json",
+  ...(token ? { Authorization: `Bearer ${token}` } : {}),
+});
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://fintera-aquaculture-bckend.onrender.com'
-const PONDS_ENDPOINT = `${API_BASE}/ponds`
+// Helper to normalize FastAPI/Supabase response into UI Pond structure
+const transformPondData = (rawPond: any): Pond => ({
+  id: String(rawPond.id || rawPond.pond_name),
+  name: rawPond.pond_name || rawPond.name || "Unnamed Pond",
+  location: rawPond.pond_location || rawPond.location || "N/A",
+  status: (rawPond.pond_status || rawPond.status || "Active") as PondStatus,
+  pondType: rawPond.pond_type || rawPond.pondType || "Standard",
+  pondCapacity: Number(rawPond.pond_capacity || rawPond.pondCapacity || 0),
+  waterTemp: Number(rawPond.water_temp || rawPond.waterTemp || 0),
+  phLevel: Number(rawPond.ph_level || rawPond.phLevel || 7.0),
+  lastHarvestDate: rawPond.last_harvest_date || rawPond.lastHarvestDate || null,
+  currentStock: {
+    quantity: Number(rawPond.pond_stock_quantity || rawPond.currentStock?.quantity || 0),
+    species: rawPond.species_in_pond || rawPond.currentStock?.species || "Unspecified",
+  },
+});
 
-const authHeaders = (token?: string | null): Record<string, string> =>
-  token ? { Authorization: `Bearer ${token}` } : {}
+export const getPonds = async (token: string | null): Promise<Pond[]> => {
+  const response = await fetch(`${API_URL}/ponds`, {
+    method: "GET",
+    headers: getHeaders(token),
+  });
 
-const humanizeDetailMessage = (rawMessage: string): string => {
-  if (!rawMessage) return 'Invalid value.'
-  if (rawMessage.includes('Field required')) return 'is required.'
-  if (rawMessage.includes('Input should be a valid string')) return 'must be a valid value.'
-  return rawMessage.replace(/\.$/, '') + '.'
-}
-
-const responseToError = async (response: Response) => {
-  const contentType = response.headers.get('content-type') ?? ''
-  const text = await response.text()
-  let message = response.statusText || `HTTP ${response.status}`
-
-  if (contentType.includes('application/json')) {
-    try {
-      const data = JSON.parse(text)
-      if (data?.detail && Array.isArray(data.detail)) {
-        message = data.detail
-          .map((detail: any) => {
-            const loc = Array.isArray(detail.loc) ? detail.loc.filter((part: any) => part !== 'body') : detail.loc
-            const field = Array.isArray(loc) ? loc.join('.') : String(loc ?? 'Input')
-            const label = field.replace(/_/g, ' ')
-            const prettyField = label ? `${label.charAt(0).toUpperCase()}${label.slice(1)}` : 'Input'
-            const humanMessage = humanizeDetailMessage(String(detail.msg ?? 'Invalid value'))
-            return `${prettyField} ${humanMessage}`
-          })
-          .join(' ')
-      } else if (typeof data?.message === 'string') {
-        message = data.message
-      } else if (typeof data?.error === 'string') {
-        message = data.error
-      } else if (typeof data === 'string') {
-        message = data
-      }
-    } catch {
-      if (text) {
-        message = text
-      }
-    }
-  } else if (text) {
-    message = text
-  }
-
-  throw new Error(message)
-}
-
-const normalizePond = (input: any): Pond => {
-  const rawStatus = String(input.status ?? input.pond_status ?? 'Inactive')
-  const status = ['Active', 'Inactive', 'Maintenance'].includes(rawStatus)
-    ? (rawStatus as PondStatus)
-    : rawStatus.toLowerCase().includes('active')
-    ? 'Active'
-    : rawStatus.toLowerCase().includes('maintenance')
-    ? 'Maintenance'
-    : 'Inactive'
-
-  return {
-    id: String(input.id ?? input._id ?? input.pondId ?? input.pond_name ?? input.name ?? ''),
-    name: String(input.name ?? input.pond_name ?? ''),
-    location: String(input.location ?? input.pond_location ?? ''),
-    status,
-    currentStock: {
-      species: String(input.currentStock?.species ?? input.species ?? input.species_in_pond ?? 'Unknown'),
-      quantity: Number(input.currentStock?.quantity ?? input.quantity ?? input.pond_stock_quantity ?? 0),
-    },
-    lastHarvestDate: input.lastHarvestDate ?? input.last_harvest_date ?? null,
-    waterTemp: Number(input.waterTemp ?? input.water_temp ?? 0),
-    phLevel: Number(input.phLevel ?? input.ph_level ?? 0),
-    pondType: input.pondType ?? input.pond_type ?? undefined,
-    capacity: input.capacity ?? input.pond_capacity != null ? Number(input.pond_capacity) : undefined,
-    isDeleted: Boolean(input.is_deleted ?? input.isDeleted ?? false),
-  }
-}
-
-const mapPondPayloadToApi = (payload: PondCreatePayload | PondUpdatePayload) => {
-  const body: Record<string, unknown> = {}
-
-  if (payload.name != null) body.pond_name = String(payload.name)
-  if (payload.location != null) body.pond_location = String(payload.location)
-  if (payload.status != null) body.pond_status = String(payload.status)
-  if (payload.pondType != null) body.pond_type = String(payload.pondType)
-  if (payload.pondCapacity != null) body.pond_capacity = Number(payload.pondCapacity)
-  if (payload.speciesInPond != null) body.species_in_pond = String(payload.speciesInPond)
-  if (payload.pondStockQuantity != null) body.pond_stock_quantity = Number(payload.pondStockQuantity)
-  if (payload.lastHarvestDate != null) body.last_harvest_date = String(payload.lastHarvestDate)
-  if (payload.waterTemp != null) body.water_temp = String(payload.waterTemp)
-  // ph_level is not in the backend schema — omit it
-
-  return body
-}
-
-export const getPonds = async (token?: string | null): Promise<Pond[]> => {
-  const response = await fetch(PONDS_ENDPOINT, {
-    headers: authHeaders(token),
-  })
   if (!response.ok) {
-    await responseToError(response)
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to fetch ponds");
   }
 
-  const data = await response.json()
-  if (!Array.isArray(data)) {
-    throw new Error('Invalid pond list response')
-  }
-  return data.map(normalizePond).filter((pond) => !pond.isDeleted)
-}
+  const result = await response.json();
+  const list = Array.isArray(result) ? result : result.data || [];
+  return list.map(transformPondData);
+};
 
-export const getPond = async (id: string, token?: string | null): Promise<Pond | null> => {
-  const response = await fetch(`${PONDS_ENDPOINT}/${encodeURIComponent(id)}`, {
-    headers: authHeaders(token),
-  })
+export const createPond = async (input: CreatePondInput, token: string | null): Promise<Pond> => {
+  // Mapping frontend properties to FastAPI backend pydantic schema (ponds)
+  const payload = {
+    pond_name: input.name,
+    pond_location: input.location,
+    pond_status: input.status,
+    pond_type: input.pondType,
+    pond_capacity: input.pondCapacity,
+    species_in_pond: input.speciesInPond,
+    pond_stock_quantity: input.pondStockQuantity,
+    last_harvest_date: input.lastHarvestDate,
+    water_temp: String(input.waterTemp),
+  };
 
-  if (response.ok) {
-    const pond = normalizePond(await response.json())
-    return pond.isDeleted ? null : pond
-  }
+  const response = await fetch(`${API_URL}/ponds`, {
+    method: "POST",
+    headers: getHeaders(token),
+    body: JSON.stringify(payload),
+  });
 
-  if (response.status === 404 || response.status === 405) {
-    const ponds = await getPonds(token)
-    return ponds.find((pond) => String(pond.id) === String(id)) ?? null
-  }
-
-  await responseToError(response)
-  throw new Error('Failed to load pond')
-}
-
-export const createPond = async (payload: PondCreatePayload, token?: string | null): Promise<Pond> => {
-  const response = await fetch(PONDS_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...authHeaders(token),
-    },
-    body: JSON.stringify(mapPondPayloadToApi(payload)),
-  })
   if (!response.ok) {
-    await responseToError(response)
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to create pond");
   }
-  return normalizePond(await response.json())
-}
 
-export const updatePond = async (id: string, payload: PondUpdatePayload, token?: string | null): Promise<Pond> => {
-  const response = await fetch(`${PONDS_ENDPOINT}/${encodeURIComponent(id)}`, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      ...authHeaders(token),
-    },
-    body: JSON.stringify(mapPondPayloadToApi(payload)),
-  })
-  if (!response.ok) {
-    await responseToError(response)
-  }
-  return normalizePond(await response.json())
-}
+  const created = await response.json();
+  return transformPondData(created);
+};
 
-export const deletePond = async (id: string, token?: string | null): Promise<void> => {
-  const response = await fetch(`${PONDS_ENDPOINT}/${encodeURIComponent(id)}`, {
-    method: 'DELETE',
-    headers: authHeaders(token),
-  })
+export const updatePond = async (
+  pondId: string,
+  updates: Partial<{ name: string; location: string; status: PondStatus }>,
+  token: string | null
+): Promise<Pond> => {
+  const payload: Record<string, any> = {};
+  if (updates.name) payload.pond_name = updates.name;
+  if (updates.location) payload.pond_location = updates.location;
+  if (updates.status) payload.pond_status = updates.status;
+
+  const response = await fetch(`${API_URL}/ponds/${pondId}`, {
+    method: "PATCH",
+    headers: getHeaders(token),
+    body: JSON.stringify(payload),
+  });
+
   if (!response.ok) {
-    await responseToError(response)
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to update pond");
   }
-}
+
+  const updated = await response.json();
+  return transformPondData(Array.isArray(updated) ? updated[0] : updated);
+};
+
+export const deletePond = async (pondId: string, token: string | null): Promise<void> => {
+  const response = await fetch(`${API_URL}/ponds/${pondId}`, {
+    method: "DELETE",
+    headers: getHeaders(token),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to delete pond");
+  }
+};
