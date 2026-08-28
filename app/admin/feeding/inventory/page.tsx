@@ -7,7 +7,6 @@ import {
   createFeedInventory,
   FeedInventoryRecord,
 } from '@/lib/feed-inventory-api';
-// Import directly from your feeding logs service file
 import { getFeedingLogs, FeedingLogItem } from '@/lib/feeding-logs-api';
 
 // --- Reusable UI Components ---
@@ -100,7 +99,7 @@ export default function FeedInventoryPage() {
     return +(qty * costPerBag).toFixed(2);
   }, [formData.quantity, formData.feed_cost_per_bag]);
 
-  // Fetch Inventory & Feeding Logs concurrently
+  // Fetch Inventory & Feeding Logs concurrently with proper response unwrapping
   const fetchInventoryAndLogs = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -110,10 +109,16 @@ export default function FeedInventoryPage() {
         getFeedingLogs().catch(() => ({ status: 'error', data: [] })),
       ]);
 
-      setFeedInventoryList(Array.isArray(inventoryRes) ? inventoryRes : []);
-      
-      // Handle response structure from getFeedingLogs API
-      const logsData = Array.isArray(logsResponse?.data) ? logsResponse.data : [];
+      const safeInventory = Array.isArray(inventoryRes)
+        ? inventoryRes
+        : (inventoryRes as any)?.data || [];
+      setFeedInventoryList(safeInventory);
+
+      const logsData = Array.isArray(logsResponse?.data)
+        ? logsResponse.data
+        : Array.isArray(logsResponse)
+        ? logsResponse
+        : (logsResponse as any)?.logs || [];
       setFeedingLogs(logsData);
     } catch (err: any) {
       setError(err?.message || 'Error fetching inventory or feeding logs.');
@@ -175,28 +180,43 @@ export default function FeedInventoryPage() {
     }
   };
 
-  // Map inventory items and deduct usage found in feeding logs
+  // Dynamic deduction calculation with multi-key fallbacks for logs
   const inventoryWithDeductions = useMemo(() => {
     const safeInventory = Array.isArray(feedInventoryList) ? feedInventoryList : [];
     const safeLogs = Array.isArray(feedingLogs) ? feedingLogs : [];
 
-    // Aggregate total usage (in KG) by normalized feed type name
     const usageByFeedType: Record<string, number> = {};
 
-    safeLogs.forEach((log) => {
-      const feedTypeKey = (log.feed_type || log.feed_type_name || '').trim().toLowerCase();
+    safeLogs.forEach((log: any) => {
+      const feedTypeKey = (
+        log.feed_type ||
+        log.feed_name ||
+        log.feed_type_name ||
+        log.feed_inventory_id ||
+        ''
+      )
+        .toString()
+        .trim()
+        .toLowerCase();
+
       if (!feedTypeKey) return;
 
-      const qtyKg = Number(log.feed_quantity ?? log.quantity_kg ?? 0);
+      const qtyKg = Number(
+        log.feed_quantity ?? log.quantity_kg ?? log.quantity_used ?? log.quantity ?? 0
+      );
       usageByFeedType[feedTypeKey] = (usageByFeedType[feedTypeKey] || 0) + qtyKg;
     });
 
     return safeInventory.map((item) => {
-      const feedNameKey = (item.feed_name || item.feed_type || '').trim().toLowerCase();
+      const itemId = (item.id || item._id || '').toString().toLowerCase();
+      const feedNameKey = (item.feed_name || '').trim().toLowerCase();
       const feedTypeKey = (item.feed_type || '').trim().toLowerCase();
 
-      // Find deducted kg matching by feed name or feed type
-      const totalDeductedKg = usageByFeedType[feedNameKey] || usageByFeedType[feedTypeKey] || 0;
+      const totalDeductedKg =
+        (itemId && usageByFeedType[itemId]) ||
+        usageByFeedType[feedNameKey] ||
+        usageByFeedType[feedTypeKey] ||
+        0;
 
       const initialBags = Number(item.quantity) || 0;
       const weightPerBag = Number(item.av_weight_per_bag) || 1;
@@ -221,29 +241,53 @@ export default function FeedInventoryPage() {
   }, [feedInventoryList, feedingLogs]);
 
   // Aggregate values for KPI summaries
-  const { totalAvailableKg, totalAvailableValue, lowStockItemsCount, totalRemainingBags } = useMemo(() => {
+  const { totalAvailableKg, totalAvailableValue, lowStockItemsCount, totalRemainingBags, totalDeductedKg } = useMemo(() => {
     let totalAvailableKg = 0;
     let totalAvailableValue = 0;
     let lowStockItemsCount = 0;
     let totalRemainingBags = 0;
+    let totalDeductedKg = 0;
 
     inventoryWithDeductions.forEach((item) => {
       totalAvailableKg += item.remainingKg;
       totalAvailableValue += item.remainingValue;
       totalRemainingBags += item.remainingBags;
+      totalDeductedKg += item.deductedKg;
 
       if (item.remainingBags <= 5) {
         lowStockItemsCount++;
       }
     });
 
-    return { totalAvailableKg, totalAvailableValue, lowStockItemsCount, totalRemainingBags };
+    return { totalAvailableKg, totalAvailableValue, lowStockItemsCount, totalRemainingBags, totalDeductedKg };
   }, [inventoryWithDeductions]);
 
+  // KPI Dashboard Cards
   const kpiCards = [
-    { title: 'Total Feed Available', value: `${totalAvailableKg.toLocaleString(undefined, { maximumFractionDigits: 1 })} kg`, icon: Package, color: 'text-blue-600' },
-    { title: 'Value of Available Feed', value: `$${totalAvailableValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, icon: DollarSign, color: 'text-green-600' },
-    { title: 'Items Low on Stock', value: `${lowStockItemsCount}`, icon: AlertTriangle, color: 'text-amber-600' },
+    { 
+      title: 'Total Feed Available', 
+      value: `${totalAvailableKg.toLocaleString(undefined, { maximumFractionDigits: 1 })} kg`, 
+      icon: Package, 
+      color: 'text-blue-600' 
+    },
+    { 
+      title: 'Total Feed Consumed', 
+      value: `${totalDeductedKg.toLocaleString(undefined, { maximumFractionDigits: 1 })} kg`, 
+      icon: Package, 
+      color: 'text-amber-600' 
+    },
+    { 
+      title: 'Value of Available Feed', 
+      value: `$${totalAvailableValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 
+      icon: DollarSign, 
+      color: 'text-green-600' 
+    },
+    { 
+      title: 'Items Low on Stock', 
+      value: `${lowStockItemsCount}`, 
+      icon: AlertTriangle, 
+      color: 'text-red-600' 
+    },
   ];
 
   const getStatusBadge = (remainingBags: number) => {
@@ -276,7 +320,7 @@ export default function FeedInventoryPage() {
       )}
 
       {/* KPI Section */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {kpiCards.map((card) => (
           <KpiCard key={card.title} title={card.title} value={card.value} icon={card.icon} color={card.color} />
         ))}
@@ -317,7 +361,7 @@ export default function FeedInventoryPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-slate-800">
                   {inventoryWithDeductions.map((stock, index) => (
-                    <tr key={stock.id || index} className="hover:bg-gray-50/50 dark:hover:bg-slate-800/50">
+                    <tr key={stock.id || stock._id || index} className="hover:bg-gray-50/50 dark:hover:bg-slate-800/50">
                       <td className="px-6 py-4 font-medium text-gray-900 dark:text-slate-100">{stock.feed_name}</td>
                       <td className="px-6 py-4">{stock.feed_type}</td>
                       <td className="px-6 py-4 text-center">{getStatusBadge(stock.remainingBags)}</td>
@@ -346,7 +390,7 @@ export default function FeedInventoryPage() {
                   <tr>
                     <td colSpan={3} className="px-6 py-3 text-right">Totals:</td>
                     <td className="px-6 py-3 text-right">{totalRemainingBags.toFixed(1)} bags</td>
-                    <td></td>
+                    <td className="px-6 py-3 text-right text-amber-600 dark:text-amber-400">-{totalDeductedKg.toFixed(1)} kg</td>
                     <td className="px-6 py-3 text-right">{totalAvailableKg.toLocaleString(undefined, { maximumFractionDigits: 1 })} kg</td>
                     <td></td>
                     <td className="px-6 py-3 text-right">${totalAvailableValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>

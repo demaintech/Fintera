@@ -98,13 +98,114 @@ const Page = () => {
           ? stocks.filter((stock) => stock.status === "Completed").length
           : 0;
 
-        const totalFeedWeight = Array.isArray(feeds)
-          ? feeds.reduce((acc, feed) => {
-              const bags = feed.quantity || 0;
-              const weightPerBag = feed.av_weight_per_bag || 0;
-              return acc + bags * weightPerBag;
-            }, 0)
-          : 0;
+        // Unwrap Feeds safely
+        const safeFeeds: any[] = Array.isArray(feeds)
+          ? feeds
+          : (feeds as any)?.data || (feeds as any)?.feeds || [];
+
+        // Unwrap Feeding Logs safely
+        let rawLogsArray: any[] = [];
+        if (Array.isArray(feedingLogsRes)) {
+          rawLogsArray = feedingLogsRes;
+        } else if (feedingLogsRes && typeof feedingLogsRes === "object") {
+          rawLogsArray =
+            (feedingLogsRes as any).data ||
+            (feedingLogsRes as any).logs ||
+            (feedingLogsRes as any).results ||
+            (feedingLogsRes as any).feedingLogs ||
+            [];
+        }
+
+        // Aggregate Feed Consumption by all possible identifiers
+        const usageByFeedType: Record<string, number> = {};
+        let aggregateFeed = 0;
+
+        rawLogsArray.forEach((log: any) => {
+          const feedIdKey = (
+            log.feed_inventory_id ||
+            log.feed_id ||
+            log.feedId ||
+            log.inventory_id ||
+            ""
+          )
+            .toString()
+            .trim()
+            .toLowerCase();
+
+          const feedNameKey = (
+            log.feed_name ||
+            log.feedName ||
+            log.name ||
+            ""
+          )
+            .toString()
+            .trim()
+            .toLowerCase();
+
+          const feedTypeKey = (
+            log.feed_type ||
+            log.feedType ||
+            log.feed_type_name ||
+            ""
+          )
+            .toString()
+            .trim()
+            .toLowerCase();
+
+          const rawVal =
+            log.feed_quantity ??
+            log.quantity_kg ??
+            log.quantityKg ??
+            log.quantity_used ??
+            log.quantity ??
+            log.feed_amount ??
+            log.feedAmount ??
+            log.amount ??
+            log.used_kg ??
+            log.weight_kg ??
+            log.qty ??
+            log.feedQuantity ??
+            log.feed?.quantity ??
+            log.details?.quantity ??
+            0;
+
+          const parsedVal =
+            typeof rawVal === "number"
+              ? rawVal
+              : parseFloat(String(rawVal).replace(/[^0-9.]/g, ""));
+
+          const qtyKg = isNaN(parsedVal) ? 0 : parsedVal;
+
+          aggregateFeed += qtyKg;
+
+          if (feedIdKey) usageByFeedType[feedIdKey] = (usageByFeedType[feedIdKey] || 0) + qtyKg;
+          if (feedNameKey) usageByFeedType[feedNameKey] = (usageByFeedType[feedNameKey] || 0) + qtyKg;
+          if (feedTypeKey) usageByFeedType[feedTypeKey] = (usageByFeedType[feedTypeKey] || 0) + qtyKg;
+        });
+
+        // Dynamic Remaining Feed Stock Calculation
+        let totalAvailableFeedKg = 0;
+
+        safeFeeds.forEach((item: any) => {
+          const itemId = (item.id || item._id || item.feed_inventory_id || "").toString().trim().toLowerCase();
+          const feedNameKey = (item.feed_name || item.name || "").toString().trim().toLowerCase();
+          const feedTypeKey = (item.feed_type || item.type || "").toString().trim().toLowerCase();
+
+          const deductedKg =
+            (itemId && usageByFeedType[itemId]) ||
+            (feedNameKey && usageByFeedType[feedNameKey]) ||
+            (feedTypeKey && usageByFeedType[feedTypeKey]) ||
+            0;
+
+          const initialBags = Number(item.quantity) || 0;
+          const weightPerBag = Number(item.av_weight_per_bag || item.weight_per_bag || item.bag_weight) || 0;
+
+          // Fallback: If weight per bag is not provided, treat quantity as direct KG
+          const initialKg = weightPerBag > 0 ? initialBags * weightPerBag : initialBags;
+
+          const remainingKg = Math.max(0, initialKg - deductedKg);
+          totalAvailableFeedKg += remainingKg;
+        });
 
         // Sales Metrics Calculations
         const salesList: SaleRecord[] = Array.isArray(salesRes) ? salesRes : [];
@@ -142,52 +243,11 @@ const Page = () => {
 
         setSalesTrendData(sortedTrendData);
 
-        // Feed Logs Aggregation
-        let rawLogsArray: any[] = [];
-        if (Array.isArray(feedingLogsRes)) {
-          rawLogsArray = feedingLogsRes;
-        } else if (feedingLogsRes && typeof feedingLogsRes === "object") {
-          rawLogsArray =
-            (feedingLogsRes as any).data ||
-            (feedingLogsRes as any).logs ||
-            (feedingLogsRes as any).results ||
-            (feedingLogsRes as any).feedingLogs ||
-            [];
-        }
-
-        let aggregateFeed = 0;
-        if (Array.isArray(rawLogsArray) && rawLogsArray.length > 0) {
-          aggregateFeed = rawLogsArray.reduce((acc, item) => {
-            const rawVal =
-              item?.quantity_kg ??
-              item?.quantityKg ??
-              item?.quantity ??
-              item?.feed_amount ??
-              item?.feedAmount ??
-              item?.amount ??
-              item?.used_kg ??
-              item?.weight_kg ??
-              item?.qty ??
-              item?.feed_quantity ??
-              item?.feedQuantity ??
-              item?.feed?.quantity ??
-              item?.details?.quantity ??
-              0;
-
-            const parsedVal =
-              typeof rawVal === "number"
-                ? rawVal
-                : parseFloat(String(rawVal).replace(/[^0-9.]/g, ""));
-
-            return acc + (isNaN(parsedVal) ? 0 : parsedVal);
-          }, 0);
-        }
-
         const calculatedFeedEfficiency =
-          totalFeedWeight > 0 && totalStockFromRecords > 0
+          totalAvailableFeedKg > 0 && totalStockFromRecords > 0
             ? Math.min(
                 Math.round(
-                  (totalStockFromRecords / (totalStockFromRecords + totalFeedWeight * 0.1)) * 100
+                  (totalStockFromRecords / (totalStockFromRecords + totalAvailableFeedKg * 0.1)) * 100
                 ),
                 100
               )
@@ -237,7 +297,7 @@ const Page = () => {
           totalFishes: totalStockFromRecords,
           totalPonds: pondCount,
           totalHarvest: completedHarvests,
-          totalFeedsKg: totalFeedWeight,
+          totalFeedsKg: totalAvailableFeedKg,
           weeklyFeedConsumedKg: aggregateFeed,
           overallMortalityRate: overallRate,
           growthRate: null,
@@ -255,12 +315,10 @@ const Page = () => {
     fetchDashboardMetrics();
   }, [token]);
 
+  // Strictly outputs values in Kilograms without auto-converting to Tonnes
   const formatFeedDisplay = (totalKg: number) => {
     if (loading) return "...";
-    if (totalKg >= 1000) {
-      return `${(totalKg / 1000).toFixed(1)} T`;
-    }
-    return `${totalKg.toLocaleString()} kg`;
+    return `${Math.round(totalKg).toLocaleString()} kg`;
   };
 
   const activities = [

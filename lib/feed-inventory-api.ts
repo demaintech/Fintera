@@ -13,6 +13,7 @@ export interface FeedInventoryPayload {
 
 export interface FeedInventoryRecord extends FeedInventoryPayload {
   id?: string;
+  _id?: string; // MongoDB fallback
   recorded_by?: string;
   created_at?: string;
 }
@@ -99,11 +100,8 @@ export async function getFeedInventory(token?: string): Promise<FeedInventoryRec
     headers,
   });
 
-  const result: FeedInventoryResponse = await handleResponse(
-    response,
-    'Failed to fetch feed inventory'
-  );
-  return result.data || [];
+  const result = await handleResponse(response, 'Failed to fetch feed inventory');
+  return Array.isArray(result) ? result : result.data || [];
 }
 
 /**
@@ -119,10 +117,7 @@ export async function getFeedInventoryById(
     headers,
   });
 
-  const result: SingleFeedInventoryResponse = await handleResponse(
-    response,
-    'Failed to fetch feed inventory record'
-  );
+  const result = await handleResponse(response, 'Failed to fetch feed inventory record');
   return result.data || result;
 }
 
@@ -140,7 +135,8 @@ export async function createFeedInventory(
     body: JSON.stringify(payload),
   });
 
-  return handleResponse(response, 'Failed to save feed inventory record');
+  const result = await handleResponse(response, 'Failed to save feed inventory record');
+  return result.data || result;
 }
 
 /**
@@ -170,7 +166,8 @@ export async function deductFeedInventory(
   quantityUsed: number,
   token?: string
 ): Promise<FeedInventoryRecord> {
-  if (!inventoryRecord.id) {
+  const recordId = inventoryRecord.id || inventoryRecord._id;
+  if (!recordId) {
     throw new Error('Inventory ID is required to deduct feed stock.');
   }
 
@@ -187,13 +184,13 @@ export async function deductFeedInventory(
 
   let newStatus = inventoryRecord.status;
   if (newQuantity <= 0) {
-    newStatus = 'out_of_stock';
-  } else if (newQuantity < 5) {
-    newStatus = 'low_stock';
+    newStatus = 'Out of Stock';
+  } else if (newQuantity <= 5) {
+    newStatus = 'Low Stock';
   }
 
   return await updateFeedInventory(
-    inventoryRecord.id,
+    recordId,
     {
       quantity: newQuantity,
       feed_total_cost: newTotalCost,
@@ -205,7 +202,6 @@ export async function deductFeedInventory(
 
 /**
  * Atomic stock deduction via custom backend endpoint POST /feed_inventory/:id/deduct/
- * Use this if your backend supports server-side atomic deductions.
  */
 export async function deductFeedStockOnBackend(
   inventoryId: string,
@@ -231,23 +227,21 @@ export async function logFeedConsumption(
   inventoryRecord: FeedInventoryRecord,
   token?: string
 ): Promise<{ feedLog: unknown; updatedInventory: FeedInventoryRecord }> {
-  // 1. Verify availability
   if (inventoryRecord.quantity < logPayload.quantity_used) {
     throw new Error(
       `Insufficient stock. Current stock is ${inventoryRecord.quantity}, but tried to log ${logPayload.quantity_used}.`
     );
   }
 
-  // 2. Post feed log entry
   const headers = getHeaders(token);
   const logResponse = await fetch(`${API_BASE_URL}/feed_logs/`, {
     method: 'POST',
     headers,
     body: JSON.stringify(logPayload),
   });
-  const feedLog = await handleResponse(logResponse, 'Failed to create feed log entry');
+  const feedLogResult = await handleResponse(logResponse, 'Failed to create feed log entry');
+  const feedLog = feedLogResult.data || feedLogResult;
 
-  // 3. Deduct stock from inventory
   const updatedInventory = await deductFeedInventory(
     inventoryRecord,
     logPayload.quantity_used,
