@@ -25,15 +25,7 @@ import { getStockRecords } from "@/lib/stock-api";
 import { getFeedInventory } from "@/lib/feed-inventory-api";
 import { getMortalityRecords, MortalityRecord } from "@/lib/mortality-api";
 import { getFeedingLogs } from "@/lib/feeding-logs-api";
-
-const chartData = [
-  { month: "January", revenue: -20000, sales: 200 },
-  { month: "February", revenue: -10000, sales: 200 },
-  { month: "March", revenue: 100000, sales: 200 },
-  { month: "April", revenue: 5000, sales: 190 },
-  { month: "May", revenue: 50000, sales: 130 },
-  { month: "June", revenue: 20000, sales: 140 },
-];
+import { getSalesRecords, SaleRecord } from "@/lib/sales-api";
 
 const chartConfig = {
   revenue: {
@@ -66,7 +58,13 @@ const Page = () => {
     overallMortalityRate: 0,
     growthRate: null as number | null,
     feedEfficiency: 0,
+    totalRevenue: 0,
+    totalSalesCount: 0,
   });
+
+  const [salesTrendData, setSalesTrendData] = useState<
+    { month: string; revenue: number; sales: number }[]
+  >([]);
 
   const [mortalityChartData, setMortalityChartData] = useState<
     { date: string; rate: number; count: number }[]
@@ -78,7 +76,7 @@ const Page = () => {
       setLoading(true);
 
       try {
-        const [ponds, stocks, feeds, mortalities, feedingLogsRes] = await Promise.all([
+        const [ponds, stocks, feeds, mortalities, feedingLogsRes, salesRes] = await Promise.all([
           getPonds(token).catch(() => []),
           getStockRecords(token).catch(() => []),
           getFeedInventory(token).catch(() => []),
@@ -87,9 +85,8 @@ const Page = () => {
             console.error("DEBUG: Failed to fetch feeding logs", err);
             return null;
           }),
+          getSalesRecords(token).catch(() => []),
         ]);
-
-        console.log("DEBUG: Raw Feeding Logs API Response:", feedingLogsRes);
 
         const pondCount = Array.isArray(ponds) ? ponds.length : 0;
 
@@ -109,7 +106,43 @@ const Page = () => {
             }, 0)
           : 0;
 
-        // Extract array from response payload safely
+        // Sales Metrics Calculations
+        const salesList: SaleRecord[] = Array.isArray(salesRes) ? salesRes : [];
+        const calculatedTotalRevenue = salesList.reduce(
+          (acc, sale) => acc + (sale.cost + sale.profit),
+          0
+        );
+        const calculatedSalesCount = salesList.length;
+
+        // Group Sales Data by Month for Chart Trend
+        const monthlyMap: Record<string, { revenue: number; sales: number; dateObj: Date }> = {};
+
+        salesList.forEach((sale) => {
+          if (!sale.saleDate) return;
+          const dateObj = new Date(sale.saleDate);
+          if (isNaN(dateObj.getTime())) return;
+
+          const monthKey = dateObj.toLocaleString("en-US", { month: "long" });
+
+          if (!monthlyMap[monthKey]) {
+            monthlyMap[monthKey] = { revenue: 0, sales: 0, dateObj };
+          }
+
+          monthlyMap[monthKey].revenue += sale.cost + sale.profit;
+          monthlyMap[monthKey].sales += 1;
+        });
+
+        const sortedTrendData = Object.entries(monthlyMap)
+          .sort((a, b) => a[1].dateObj.getTime() - b[1].dateObj.getTime())
+          .map(([month, data]) => ({
+            month,
+            revenue: data.revenue,
+            sales: data.sales,
+          }));
+
+        setSalesTrendData(sortedTrendData);
+
+        // Feed Logs Aggregation
         let rawLogsArray: any[] = [];
         if (Array.isArray(feedingLogsRes)) {
           rawLogsArray = feedingLogsRes;
@@ -122,16 +155,7 @@ const Page = () => {
             [];
         }
 
-        console.log("DEBUG: Parsed Feeding Logs Array:", rawLogsArray);
-
-        if (rawLogsArray.length > 0) {
-          console.log("DEBUG: First Item Object Keys:", Object.keys(rawLogsArray[0]));
-          console.log("DEBUG: First Item Contents:", JSON.stringify(rawLogsArray[0], null, 2));
-        }
-
-        // Aggregate feed quantity across all records directly
         let aggregateFeed = 0;
-
         if (Array.isArray(rawLogsArray) && rawLogsArray.length > 0) {
           aggregateFeed = rawLogsArray.reduce((acc, item) => {
             const rawVal =
@@ -158,8 +182,6 @@ const Page = () => {
             return acc + (isNaN(parsedVal) ? 0 : parsedVal);
           }, 0);
         }
-
-        console.log("DEBUG: Calculated Total Feed Aggregate:", aggregateFeed);
 
         const calculatedFeedEfficiency =
           totalFeedWeight > 0 && totalStockFromRecords > 0
@@ -220,6 +242,8 @@ const Page = () => {
           overallMortalityRate: overallRate,
           growthRate: null,
           feedEfficiency: calculatedFeedEfficiency,
+          totalRevenue: calculatedTotalRevenue,
+          totalSalesCount: calculatedSalesCount,
         });
       } catch (err) {
         console.error("Failed to load dashboard metrics", err);
@@ -259,15 +283,20 @@ const Page = () => {
   const metrics = [
     {
       title: "Total Revenue",
-      value: "$124,500",
+      value: loading
+        ? "..."
+        : `$${metricsData.totalRevenue.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}`,
       change: "+12.4%",
-      description: "vs last month",
+      description: "from sales records",
       icon: DollarSign,
       accent: "from-emerald-500/20 to-emerald-400/5",
     },
     {
       title: "Total Sales",
-      value: "3,284",
+      value: loading ? "..." : metricsData.totalSalesCount.toLocaleString(),
       change: "+8.1%",
       description: "orders processed",
       icon: TrendingUp,
@@ -363,7 +392,7 @@ const Page = () => {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
             <div>
               <h2 className="text-lg sm:text-xl font-semibold">Revenue & Sales Trend</h2>
-              <p className="text-xs sm:text-sm text-foreground/60 mt-0.5">Performance over the last 6 months.</p>
+              <p className="text-xs sm:text-sm text-foreground/60 mt-0.5">Real-time monthly aggregated performance.</p>
             </div>
             <div className="rounded-full bg-primary/10 px-3 py-1 text-xs sm:text-sm font-medium text-primary whitespace-nowrap">
               Live trend
@@ -371,38 +400,44 @@ const Page = () => {
           </div>
 
           <ChartContainer config={chartConfig} className="mt-4 sm:mt-6 min-h-60 sm:min-h-75 w-full">
-            <AreaChart accessibilityLayer data={chartData} margin={{ left: 12, right: 12 }}>
-              <CartesianGrid vertical={false} />
-              <XAxis
-                dataKey="month"
-                tickLine={false}
-                axisLine={false}
-                tickMargin={8}
-                tickFormatter={(value) => value.slice(0, 3)}
-              />
-              <YAxis
-                tickLine={false}
-                axisLine={false}
-                tickMargin={8}
-                tickFormatter={(value) => `$${value / 1000}k`}
-              />
-              <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
-              <defs>
-                <linearGradient id="fillRevenue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--color-revenue)" stopOpacity={0.8} />
-                  <stop offset="95%" stopColor="var(--color-revenue)" stopOpacity={0.1} />
-                </linearGradient>
-              </defs>
-              <Area
-                dataKey="revenue"
-                type="natural"
-                fill="url(#fillRevenue)"
-                fillOpacity={0.4}
-                stroke="var(--color-revenue)"
-                stackId="a"
-              />
-              <ChartLegend content={<ChartLegendContent />} />
-            </AreaChart>
+            {salesTrendData.length === 0 ? (
+              <div className="flex h-60 items-center justify-center text-xs text-muted-foreground">
+                No sales records available to render trend.
+              </div>
+            ) : (
+              <AreaChart accessibilityLayer data={salesTrendData} margin={{ left: 12, right: 12 }}>
+                <CartesianGrid vertical={false} />
+                <XAxis
+                  dataKey="month"
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  tickFormatter={(value) => value.slice(0, 3)}
+                />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  tickFormatter={(value) => `$${value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value}`}
+                />
+                <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+                <defs>
+                  <linearGradient id="fillRevenue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--color-revenue)" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="var(--color-revenue)" stopOpacity={0.1} />
+                  </linearGradient>
+                </defs>
+                <Area
+                  dataKey="revenue"
+                  type="natural"
+                  fill="url(#fillRevenue)"
+                  fillOpacity={0.4}
+                  stroke="var(--color-revenue)"
+                  stackId="a"
+                />
+                <ChartLegend content={<ChartLegendContent />} />
+              </AreaChart>
+            )}
           </ChartContainer>
         </div>
 

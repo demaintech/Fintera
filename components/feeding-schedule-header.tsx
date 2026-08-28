@@ -57,6 +57,7 @@ export const FeedingScheduleHeader = ({
   // Form state for the dialog
   const [pondId, setPondId] = React.useState("");
   const [feedTypeId, setFeedTypeId] = React.useState("");
+  const [species, setSpecies] = React.useState<string>("Tilapia");
   const [frequency, setFrequency] = React.useState<ScheduleFrequency>(
     ScheduleFrequency.TwiceDaily
   );
@@ -66,6 +67,7 @@ export const FeedingScheduleHeader = ({
     { time: "08:00", quantity: 0, unit: "kg" },
     { time: "16:00", quantity: 0, unit: "kg" },
   ]);
+  const [isActive, setIsActive] = React.useState<boolean>(true);
   const [daysOfWeek, setDaysOfWeek] = React.useState<number[]>([
     0, 1, 2, 3, 4, 5, 6,
   ]);
@@ -97,7 +99,7 @@ export const FeedingScheduleHeader = ({
     setFeedingTimes(feedingTimes.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // Basic validation
     if (!pondId || !feedTypeId || !startDate) {
       toast.error("Please fill in all required fields.");
@@ -119,20 +121,34 @@ export const FeedingScheduleHeader = ({
 
     const newSchedule: FeedingSchedulePayload = {
       pond_name: pond.name,
-      species: "Tilapia",
+      species: species,
       feed_type: feedType.name,
       target_amount: totalTargetAmount,
       feeding_time: feedingTimes[0]?.time || "08:00",
       frequency: frequency,
-      is_active: true,
+      is_active: isActive,
       note: notes || "",
     };
 
     // TODO: API call to create schedule
-    onAddSchedule(newSchedule);
-    toast.success("New feeding schedule has been added successfully.");
-    setIsOpen(false);
-    // Reset form state here if needed
+    try {
+      await onAddSchedule(newSchedule);
+      toast.success("New feeding schedule has been added successfully.");
+      // Reset form
+      setPondId("");
+      setFeedTypeId("");
+      setSpecies("Tilapia");
+      setFrequency(ScheduleFrequency.TwiceDaily);
+      setFeedingTimes([{ time: "08:00", quantity: 0, unit: "kg" }, { time: "16:00", quantity: 0, unit: "kg" }]);
+      setDaysOfWeek([0, 1, 2, 3, 4, 5, 6]);
+      setStartDate(new Date());
+      setEndDate(undefined);
+      setNotes("");
+      setIsActive(true);
+      setIsOpen(false);
+    } catch (err) {
+      // onAddSchedule will have shown a toast if it failed; keep the modal open so user can fix.
+    }
   };
 
   return (
@@ -171,12 +187,12 @@ export const FeedingScheduleHeader = ({
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
-              {/* Form fields go here */}
+              {/* Pond selection */}
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="pond" className="text-right">
                   Pond/Batch
                 </Label>
-                <Select onValueChange={(value: any) => setPondId(value ?? "")}>
+                <Select onValueChange={(value: any) => setPondId(value ?? "") }>
                   <SelectTrigger className="col-span-3 rounded-sm h-11">
                     <SelectValue placeholder="Select a pond" />
                   </SelectTrigger>
@@ -189,7 +205,115 @@ export const FeedingScheduleHeader = ({
                   </SelectContent>
                 </Select>
               </div>
-              {/* ... other form fields like feed type, frequency, etc. */}
+
+              {/* Species & Feed Type */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Species</Label>
+                <Input
+                  value={species}
+                  onChange={(e) => setSpecies(e.target.value)}
+                  className="col-span-3 h-11 rounded-sm"
+                  placeholder="e.g. Tilapia"
+                />
+              </div>
+
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Feed Type</Label>
+                <Select onValueChange={(value: any) => setFeedTypeId(value ?? "") }>
+                  <SelectTrigger className="col-span-3 rounded-sm h-11">
+                    <SelectValue placeholder="Select feed type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MOCK_FEED_TYPES.map((feed) => (
+                      <SelectItem key={feed.id} value={feed.id}>
+                        {feed.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Frequency */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Frequency</Label>
+                <Select onValueChange={(value: any) => setFrequency(value as ScheduleFrequency)}>
+                  <SelectTrigger className="col-span-3 rounded-sm h-11">
+                    <SelectValue placeholder={frequency} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.values(ScheduleFrequency).map((freq) => (
+                      <SelectItem key={freq} value={freq}>
+                        {freq}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Feeding times rows */}
+              <div className="col-span-4">
+                <Label className="mb-2">Feeding Times</Label>
+                <div className="space-y-2">
+                  {feedingTimes.map((ft, idx) => (
+                    <div key={idx} className="grid grid-cols-12 gap-2 items-center">
+                      <input
+                        type="time"
+                        value={ft.time || ''}
+                        onChange={(e) => handleTimeChange(idx, 'time', e.target.value)}
+                        className="col-span-4 h-10 px-2 rounded border border-gray-300 bg-transparent"
+                      />
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={ft.quantity ?? 0}
+                        onChange={(e) => handleTimeChange(idx, 'quantity', Number(e.target.value))}
+                        className="col-span-4 h-10 px-2 rounded border border-gray-300 bg-transparent"
+                        placeholder="Quantity"
+                      />
+                      <Select onValueChange={(v: any) => handleTimeChange(idx, 'unit', v)}>
+                        <SelectTrigger className="col-span-2 h-10 rounded">
+                          <SelectValue placeholder={ft.unit || 'kg'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="kg">kg</SelectItem>
+                          <SelectItem value="g">g</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <button
+                        type="button"
+                        onClick={() => removeTimeRow(idx)}
+                        className="col-span-2 inline-flex items-center justify-center h-10 rounded border border-transparent text-red-600 hover:bg-red-50"
+                        title="Remove time"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="pt-2">
+                  <Button variant="ghost" onClick={addTimeRow} className="h-9">
+                    <PlusCircle className="mr-2 h-4 w-4" /> Add time
+                  </Button>
+                </div>
+              </div>
+
+              {/* Days of week */}
+              <div className="grid grid-cols-4 items-start gap-4">
+                <Label className="text-right">Days</Label>
+                <div className="col-span-3 grid grid-cols-7 gap-2">
+                  {dayLabels.map((label, idx) => (
+                    <label key={label} className="flex flex-col items-center">
+                      <Checkbox
+                        checked={daysOfWeek.includes(idx)}
+                        onCheckedChange={(checked) => handleDayChange(idx, Boolean(checked))}
+                      />
+                      <span className="text-xs mt-1">{label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Start & End Date */}
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Start Date</Label>
                 <Popover>
@@ -210,9 +334,65 @@ export const FeedingScheduleHeader = ({
                   </PopoverContent>
                 </Popover>
               </div>
+
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">End Date</Label>
+                <Popover>
+                  <PopoverTrigger>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "col-span-3 justify-start text-left font-normal rounded-sm h-11",
+                        !endDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {endDate ? format(endDate, "PPP") : <span>Optional</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar mode="single" selected={endDate} onSelect={setEndDate} />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Active toggle & Notes */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Active</Label>
+                <div className="col-span-3">
+                  <label className="inline-flex items-center space-x-2">
+                    <Checkbox checked={isActive} onCheckedChange={(c) => setIsActive(Boolean(c))} />
+                    <span className="text-sm">Enable this schedule</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-4 items-start gap-4">
+                <Label className="text-right">Notes</Label>
+                <Textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="col-span-3 h-24"
+                  placeholder="Optional notes or instructions"
+                />
+              </div>
+
+              {/* Summary: total target */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Total Target</Label>
+                <div className="col-span-3">
+                  <div className="text-sm font-medium">
+                    {feedingTimes.reduce((t, f) => t + Number(f.quantity || 0), 0)} kg
+                  </div>
+                </div>
+              </div>
             </div>
             <DialogFooter>
-              <Button type="submit" onClick={handleSubmit}>
+              <Button
+                type="button"
+                onClick={handleSubmit}
+                disabled={!pondId || !feedTypeId || !startDate || feedingTimes.length === 0}
+              >
                 Save Schedule
               </Button>
             </DialogFooter>

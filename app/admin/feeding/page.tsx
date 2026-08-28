@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Toaster } from '@/components/ui/sonner';
@@ -9,7 +9,6 @@ import { Pencil, Trash2, Check, X, Loader2 } from 'lucide-react';
 import { MOCK_PONDS } from '@/components/types';
 import { FeedingScheduleHeader } from '@/components/feeding-schedule-header';
 import { ScheduleKpiCards } from '@/components/schedule-kpi-cards';
-import { TodaysFeedingChecklist } from '@/components/todays-feeding-checklist';
 
 import {
   getSchedules,
@@ -157,250 +156,240 @@ const FeedingSchedulePage = () => {
             <Skeleton className="h-28 rounded-xl" />
             <Skeleton className="h-28 rounded-xl" />
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Skeleton className="h-96 lg:col-span-2 rounded-xl" />
-            <Skeleton className="h-96 rounded-xl" />
-          </div>
+          <Skeleton className="h-96 w-full rounded-xl" />
         </div>
       ) : (
         <>
           <ScheduleKpiCards schedules={formattedSchedules} allPonds={MOCK_PONDS} />
 
-          <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
-            <section className="lg:col-span-2 space-y-4">
-              <h2 className="text-xl font-semibold tracking-tight">
-                All Feeding Schedules
-              </h2>
+          <section className="space-y-4">
+            <h2 className="text-xl font-semibold tracking-tight">
+              All Feeding Schedules
+            </h2>
 
-              {/* Management Table */}
-              <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left text-gray-600 dark:text-slate-300">
-                    <thead className="text-xs text-gray-700 dark:text-slate-400 uppercase bg-gray-100/80 dark:bg-slate-800/50">
+            {/* Management Table */}
+            <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left text-gray-600 dark:text-slate-300">
+                  <thead className="text-xs text-gray-700 dark:text-slate-400 uppercase bg-gray-100/80 dark:bg-slate-800/50">
+                    <tr>
+                      <th className="px-4 py-3">Pond Name</th>
+                      <th className="px-4 py-3">Species</th>
+                      <th className="px-4 py-3">Feed Type</th>
+                      <th className="px-4 py-3 text-right">Target (kg)</th>
+                      <th className="px-4 py-3">Time</th>
+                      <th className="px-4 py-3">Frequency</th>
+                      <th className="px-4 py-3 text-center">Status</th>
+                      <th className="px-4 py-3 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-slate-800">
+                    {schedules.length === 0 ? (
                       <tr>
-                        <th className="px-4 py-3">Pond Name</th>
-                        <th className="px-4 py-3">Species</th>
-                        <th className="px-4 py-3">Feed Type</th>
-                        <th className="px-4 py-3 text-right">Target (kg)</th>
-                        <th className="px-4 py-3">Time</th>
-                        <th className="px-4 py-3">Frequency</th>
-                        <th className="px-4 py-3 text-center">Status</th>
-                        <th className="px-4 py-3 text-center">Actions</th>
+                        <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                          No feeding schedules found. Click above to create one.
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200 dark:divide-slate-800">
-                      {schedules.length === 0 ? (
-                        <tr>
-                          <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
-                            No feeding schedules found. Click above to create one.
-                          </td>
-                        </tr>
-                      ) : (
-                        schedules.map((schedule) => {
-                          const isEditing = editingId === schedule.id;
+                    ) : (
+                      schedules.map((schedule) => {
+                        const isEditing = editingId === schedule.id;
 
-                          return (
-                            <tr
-                              key={schedule.id}
-                              className="hover:bg-gray-50/50 dark:hover:bg-slate-800/40"
-                            >
-                              <td className="px-4 py-3 font-medium text-gray-900 dark:text-slate-100">
-                                {isEditing ? (
-                                  <input
-                                    type="text"
-                                    value={editForm.pond_name || ''}
-                                    onChange={(e) =>
-                                      setEditForm((prev) => ({
-                                        ...prev,
-                                        pond_name: e.target.value,
-                                      }))
-                                    }
-                                    className="w-full h-8 px-2 border rounded border-gray-300 dark:border-slate-700 bg-transparent text-sm"
-                                  />
-                                ) : (
-                                  schedule.pond_name
-                                )}
-                              </td>
+                        return (
+                          <tr
+                            key={schedule.id}
+                            className="hover:bg-gray-50/50 dark:hover:bg-slate-800/40"
+                          >
+                            <td className="px-4 py-3 font-medium text-gray-900 dark:text-slate-100">
+                              {isEditing ? (
+                                <input
+                                  type="text"
+                                  value={editForm.pond_name || ''}
+                                  onChange={(e) =>
+                                    setEditForm((prev) => ({
+                                      ...prev,
+                                      pond_name: e.target.value,
+                                    }))
+                                  }
+                                  className="w-full h-8 px-2 border rounded border-gray-300 dark:border-slate-700 bg-transparent text-sm"
+                                />
+                              ) : (
+                                schedule.pond_name
+                              )}
+                            </td>
 
-                              <td className="px-4 py-3">
-                                {isEditing ? (
-                                  <input
-                                    type="text"
-                                    value={editForm.species || ''}
-                                    onChange={(e) =>
-                                      setEditForm((prev) => ({
-                                        ...prev,
-                                        species: e.target.value,
-                                      }))
-                                    }
-                                    className="w-full h-8 px-2 border rounded border-gray-300 dark:border-slate-700 bg-transparent text-sm"
-                                  />
-                                ) : (
-                                  schedule.species
-                                )}
-                              </td>
+                            <td className="px-4 py-3">
+                              {isEditing ? (
+                                <input
+                                  type="text"
+                                  value={editForm.species || ''}
+                                  onChange={(e) =>
+                                    setEditForm((prev) => ({
+                                      ...prev,
+                                      species: e.target.value,
+                                    }))
+                                  }
+                                  className="w-full h-8 px-2 border rounded border-gray-300 dark:border-slate-700 bg-transparent text-sm"
+                                />
+                              ) : (
+                                schedule.species
+                              )}
+                            </td>
 
-                              <td className="px-4 py-3">
-                                {isEditing ? (
-                                  <input
-                                    type="text"
-                                    value={editForm.feed_type || ''}
-                                    onChange={(e) =>
-                                      setEditForm((prev) => ({
-                                        ...prev,
-                                        feed_type: e.target.value,
-                                      }))
-                                    }
-                                    className="w-full h-8 px-2 border rounded border-gray-300 dark:border-slate-700 bg-transparent text-sm"
-                                  />
-                                ) : (
-                                  schedule.feed_type
-                                )}
-                              </td>
+                            <td className="px-4 py-3">
+                              {isEditing ? (
+                                <input
+                                  type="text"
+                                  value={editForm.feed_type || ''}
+                                  onChange={(e) =>
+                                    setEditForm((prev) => ({
+                                      ...prev,
+                                      feed_type: e.target.value,
+                                    }))
+                                  }
+                                  className="w-full h-8 px-2 border rounded border-gray-300 dark:border-slate-700 bg-transparent text-sm"
+                                />
+                              ) : (
+                                schedule.feed_type
+                              )}
+                            </td>
 
-                              <td className="px-4 py-3 text-right">
-                                {isEditing ? (
-                                  <input
-                                    type="number"
-                                    step="0.1"
-                                    value={editForm.target_amount ?? 0}
-                                    onChange={(e) =>
-                                      setEditForm((prev) => ({
-                                        ...prev,
-                                        target_amount: Number(e.target.value),
-                                      }))
-                                    }
-                                    className="w-20 h-8 px-2 border rounded border-gray-300 dark:border-slate-700 bg-transparent text-sm text-right"
-                                  />
-                                ) : (
-                                  `${schedule.target_amount} kg`
-                                )}
-                              </td>
+                            <td className="px-4 py-3 text-right">
+                              {isEditing ? (
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  value={editForm.target_amount ?? 0}
+                                  onChange={(e) =>
+                                    setEditForm((prev) => ({
+                                      ...prev,
+                                      target_amount: Number(e.target.value),
+                                    }))
+                                  }
+                                  className="w-20 h-8 px-2 border rounded border-gray-300 dark:border-slate-700 bg-transparent text-sm text-right"
+                                />
+                              ) : (
+                                `${schedule.target_amount} kg`
+                              )}
+                            </td>
 
-                              <td className="px-4 py-3">
-                                {isEditing ? (
-                                  <input
-                                    type="text"
-                                    value={editForm.feeding_time || ''}
-                                    onChange={(e) =>
-                                      setEditForm((prev) => ({
-                                        ...prev,
-                                        feeding_time: e.target.value,
-                                      }))
-                                    }
-                                    className="w-full h-8 px-2 border rounded border-gray-300 dark:border-slate-700 bg-transparent text-sm"
-                                  />
-                                ) : (
-                                  schedule.feeding_time
-                                )}
-                              </td>
+                            <td className="px-4 py-3">
+                              {isEditing ? (
+                                <input
+                                  type="text"
+                                  value={editForm.feeding_time || ''}
+                                  onChange={(e) =>
+                                    setEditForm((prev) => ({
+                                      ...prev,
+                                      feeding_time: e.target.value,
+                                    }))
+                                  }
+                                  className="w-full h-8 px-2 border rounded border-gray-300 dark:border-slate-700 bg-transparent text-sm"
+                                />
+                              ) : (
+                                schedule.feeding_time
+                              )}
+                            </td>
 
-                              <td className="px-4 py-3">
-                                {isEditing ? (
-                                  <input
-                                    type="text"
-                                    value={editForm.frequency || ''}
-                                    onChange={(e) =>
-                                      setEditForm((prev) => ({
-                                        ...prev,
-                                        frequency: e.target.value,
-                                      }))
-                                    }
-                                    className="w-full h-8 px-2 border rounded border-gray-300 dark:border-slate-700 bg-transparent text-sm"
-                                  />
-                                ) : (
-                                  schedule.frequency
-                                )}
-                              </td>
+                            <td className="px-4 py-3">
+                              {isEditing ? (
+                                <input
+                                  type="text"
+                                  value={editForm.frequency || ''}
+                                  onChange={(e) =>
+                                    setEditForm((prev) => ({
+                                      ...prev,
+                                      frequency: e.target.value,
+                                    }))
+                                  }
+                                  className="w-full h-8 px-2 border rounded border-gray-300 dark:border-slate-700 bg-transparent text-sm"
+                                />
+                              ) : (
+                                schedule.frequency
+                              )}
+                            </td>
 
-                              <td className="px-4 py-3 text-center">
-                                {isEditing ? (
-                                  <input
-                                    type="checkbox"
-                                    checked={editForm.is_active ?? true}
-                                    onChange={(e) =>
-                                      setEditForm((prev) => ({
-                                        ...prev,
-                                        is_active: e.target.checked,
-                                      }))
-                                    }
-                                    className="h-4 w-4 rounded border-gray-300"
-                                  />
-                                ) : (
-                                  <span
-                                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                      schedule.is_active
-                                        ? 'bg-green-100 text-green-800 dark:bg-green-950/60 dark:text-green-300'
-                                        : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
-                                    }`}
+                            <td className="px-4 py-3 text-center">
+                              {isEditing ? (
+                                <input
+                                  type="checkbox"
+                                  checked={editForm.is_active ?? true}
+                                  onChange={(e) =>
+                                    setEditForm((prev) => ({
+                                      ...prev,
+                                      is_active: e.target.checked,
+                                    }))
+                                  }
+                                  className="h-4 w-4 rounded border-gray-300"
+                                />
+                              ) : (
+                                <span
+                                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                    schedule.is_active
+                                      ? 'bg-green-100 text-green-800 dark:bg-green-950/60 dark:text-green-300'
+                                      : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
+                                  }`}
+                                >
+                                  {schedule.is_active ? 'Active' : 'Inactive'}
+                                </span>
+                              )}
+                            </td>
+
+                            <td className="px-4 py-3 text-center">
+                              {isEditing ? (
+                                <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    onClick={() => handleSaveEdit(schedule.id)}
+                                    disabled={isUpdating}
+                                    className="p-1 text-green-600 hover:text-green-700 hover:bg-green-50 rounded"
+                                    title="Save"
                                   >
-                                    {schedule.is_active ? 'Active' : 'Inactive'}
-                                  </span>
-                                )}
-                              </td>
-
-                              <td className="px-4 py-3 text-center">
-                                {isEditing ? (
-                                  <div className="flex items-center justify-center gap-1">
-                                    <button
-                                      onClick={() => handleSaveEdit(schedule.id)}
-                                      disabled={isUpdating}
-                                      className="p-1 text-green-600 hover:text-green-700 hover:bg-green-50 rounded"
-                                      title="Save"
-                                    >
-                                      {isUpdating ? (
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                      ) : (
-                                        <Check className="w-4 h-4" />
-                                      )}
-                                    </button>
-                                    <button
-                                      onClick={handleCancelEdit}
-                                      className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
-                                      title="Cancel"
-                                    >
-                                      <X className="w-4 h-4" />
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center justify-center gap-1">
-                                    <button
-                                      onClick={() => handleStartEdit(schedule)}
-                                      className="p-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded"
-                                      title="Edit"
-                                    >
-                                      <Pencil className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDelete(schedule.id)}
-                                      disabled={deletingId === schedule.id}
-                                      className="p-1 text-red-600 hover:text-red-700 hover:bg-red-50 rounded"
-                                      title="Delete"
-                                    >
-                                      {deletingId === schedule.id ? (
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                      ) : (
-                                        <Trash2 className="w-4 h-4" />
-                                      )}
-                                    </button>
-                                  </div>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                                    {isUpdating ? (
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                      <Check className="w-4 h-4" />
+                                    )}
+                                  </button>
+                                  <button
+                                    onClick={handleCancelEdit}
+                                    className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+                                    title="Cancel"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    onClick={() => handleStartEdit(schedule)}
+                                    className="p-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded"
+                                    title="Edit"
+                                  >
+                                    <Pencil className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDelete(schedule.id)}
+                                    disabled={deletingId === schedule.id}
+                                    className="p-1 text-red-600 hover:text-red-700 hover:bg-red-50 rounded"
+                                    title="Delete"
+                                  >
+                                    {deletingId === schedule.id ? (
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="w-4 h-4" />
+                                    )}
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
               </div>
-            </section>
-
-            <aside className="space-y-4">
-              <h2 className="text-xl font-semibold tracking-tight">Today's Checklist</h2>
-              <TodaysFeedingChecklist schedules={formattedSchedules} />
-            </aside>
-          </div>
+            </div>
+          </section>
         </>
       )}
       <Toaster />

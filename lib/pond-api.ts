@@ -36,16 +36,15 @@ const getHeaders = (token: string | null) => ({
   ...(token ? { Authorization: `Bearer ${token}` } : {}),
 });
 
-// Helper to normalize FastAPI/Supabase response into UI Pond structure
 const transformPondData = (rawPond: any): Pond => ({
-  id: String(rawPond.id || rawPond.pond_name),
+  id: String(rawPond.pond_id ?? rawPond.id ?? rawPond.pond_name),
   name: rawPond.pond_name || rawPond.name || "Unnamed Pond",
   location: rawPond.pond_location || rawPond.location || "N/A",
   status: (rawPond.pond_status || rawPond.status || "Active") as PondStatus,
   pondType: rawPond.pond_type || rawPond.pondType || "Standard",
   pondCapacity: Number(rawPond.pond_capacity || rawPond.pondCapacity || 0),
   waterTemp: Number(rawPond.water_temp || rawPond.waterTemp || 0),
-  phLevel: Number(rawPond.ph_level || rawPond.phLevel || 7.0),
+  phLevel: Number(rawPond.pH_level ?? rawPond.ph_level ?? rawPond.phLevel ?? 7.0),
   lastHarvestDate: rawPond.last_harvest_date || rawPond.lastHarvestDate || null,
   currentStock: {
     quantity: Number(rawPond.pond_stock_quantity || rawPond.currentStock?.quantity || 0),
@@ -54,7 +53,7 @@ const transformPondData = (rawPond: any): Pond => ({
 });
 
 export const getPonds = async (token: string | null): Promise<Pond[]> => {
-  const response = await fetch(`${API_URL}/ponds`, {
+  const response = await fetch(`${API_URL}/ponds/`, {
     method: "GET",
     headers: getHeaders(token),
   });
@@ -70,26 +69,13 @@ export const getPonds = async (token: string | null): Promise<Pond[]> => {
 };
 
 export const getPond = async (pondId: string, token: string | null): Promise<Pond | null> => {
-  const response = await fetch(`${API_URL}/ponds/${pondId}`, {
-    method: "GET",
-    headers: getHeaders(token),
-  });
-
-  if (response.status === 404) {
-    return null;
-  }
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || "Failed to fetch pond");
-  }
-
-  const result = await response.json();
-  return transformPondData(Array.isArray(result) ? result[0] : result);
+  // Fetch all user ponds and locate the targeted pond by ID
+  const allPonds = await getPonds(token);
+  const found = allPonds.find((pond) => String(pond.id) === String(pondId));
+  return found || null;
 };
 
 export const createPond = async (input: CreatePondInput, token: string | null): Promise<Pond> => {
-  // Mapping frontend properties to FastAPI backend pydantic schema (ponds)
   const payload = {
     pond_name: input.name,
     pond_location: input.location,
@@ -100,9 +86,10 @@ export const createPond = async (input: CreatePondInput, token: string | null): 
     pond_stock_quantity: input.pondStockQuantity,
     last_harvest_date: input.lastHarvestDate,
     water_temp: String(input.waterTemp),
+    pH_level: Number(input.phLevel),
   };
 
-  const response = await fetch(`${API_URL}/ponds`, {
+  const response = await fetch(`${API_URL}/ponds/ponds`, {
     method: "POST",
     headers: getHeaders(token),
     body: JSON.stringify(payload),
@@ -119,13 +106,15 @@ export const createPond = async (input: CreatePondInput, token: string | null): 
 
 export const updatePond = async (
   pondId: string,
-  updates: Partial<{ name: string; location: string; status: PondStatus }>,
+  updates: Partial<{ name: string; location: string; status: PondStatus; waterTemp: number; phLevel: number }>,
   token: string | null
 ): Promise<Pond> => {
   const payload: Record<string, any> = {};
   if (updates.name) payload.pond_name = updates.name;
   if (updates.location) payload.pond_location = updates.location;
   if (updates.status) payload.pond_status = updates.status;
+  if (updates.waterTemp !== undefined) payload.water_temp = String(updates.waterTemp);
+  if (updates.phLevel !== undefined) payload.pH_level = updates.phLevel;
 
   const response = await fetch(`${API_URL}/ponds/${pondId}`, {
     method: "PATCH",

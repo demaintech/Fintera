@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, FormEvent, useEffect, useCallback } from "react";
-import { Scale, TrendingUp, Zap, PlusCircle, Activity, Award } from "lucide-react";
+import { Scale, TrendingUp, Zap, PlusCircle, Activity, Award, Trash2, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ import {
 import {
   getGrowthRecords,
   createGrowthRecord,
+  deleteGrowthRecord,
   type GrowthRecord,
 } from "@/lib/growth-api";
 
@@ -38,17 +39,20 @@ const GrowthPage = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [growthRecords, setGrowthRecords] = useState<GrowthRecord[]>([]);
   const [error, setError] = useState("");
+  const [formError, setFormError] = useState("");
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [formState, setFormState] = useState({
+  const initialFormState = {
     pondName: "",
     species: "",
     sampleDate: new Date().toISOString().split("T")[0],
     sampleCount: "",
     avgWeightGrams: "",
     totalFeedUsedKg: "",
-  });
+  };
+
+  const [formState, setFormState] = useState(initialFormState);
 
   useEffect(() => {
     if (!isAuthLoading && !isAuthenticated) {
@@ -57,25 +61,26 @@ const GrowthPage = () => {
   }, [isAuthenticated, isAuthLoading, router]);
 
   const fetchRecords = useCallback(async () => {
-    if (!token) return;
+    if (!token || !isAuthenticated) return;
     setLoading(true);
     setError("");
 
     try {
       const records = await getGrowthRecords(token);
-      setGrowthRecords(records);
+      setGrowthRecords(Array.isArray(records) ? records : []);
     } catch (err: any) {
-      setError(err?.message || "Failed to fetch growth sampling records");
+      setError(err?.message || "Failed to fetch growth sampling records from server.");
+      setGrowthRecords([]);
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, isAuthenticated]);
 
   useEffect(() => {
-    if (token) {
+    if (token && isAuthenticated) {
       fetchRecords();
     }
-  }, [token, fetchRecords]);
+  }, [token, isAuthenticated, fetchRecords]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -88,10 +93,10 @@ const GrowthPage = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setError("");
+    setFormError("");
 
-    if (Object.values(formState).some((value) => !value)) {
-      setError("Please fill out all fields.");
+    if (!formState.pondName || !formState.species || !formState.sampleDate) {
+      setFormError("Please fill out all required selection fields.");
       return;
     }
 
@@ -100,12 +105,12 @@ const GrowthPage = () => {
     const feedUsedNum = parseFloat(formState.totalFeedUsedKg);
 
     if (isNaN(sampleCountNum) || isNaN(avgWeightNum) || isNaN(feedUsedNum)) {
-      setError("Please enter valid numeric values for sampling figures.");
+      setFormError("Please enter valid numeric values for count, weight, and feed.");
       return;
     }
 
     if (sampleCountNum <= 0 || avgWeightNum <= 0 || feedUsedNum < 0) {
-      setError("Please enter valid positive numbers for sampling values.");
+      setFormError("Please enter positive values for sampling measurements.");
       return;
     }
 
@@ -125,37 +130,38 @@ const GrowthPage = () => {
 
       setGrowthRecords((prev) => [created, ...prev]);
       setIsDialogOpen(false);
-      setFormState({
-        pondName: "",
-        species: "",
-        sampleDate: new Date().toISOString().split("T")[0],
-        sampleCount: "",
-        avgWeightGrams: "",
-        totalFeedUsedKg: "",
-      });
+      setFormState(initialFormState);
     } catch (err: any) {
-      setError(err?.message || "Failed to save sampling record");
+      setFormError(err?.message || "Failed to save sampling record");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Metric calculations
-  const totalSamples = growthRecords.reduce((sum, r) => sum + r.sampleCount, 0);
-  const avgWeight =
-    growthRecords.length > 0
-      ? (
-          growthRecords.reduce((sum, r) => sum + r.avgWeightGrams, 0) /
-          growthRecords.length
-        ).toFixed(1)
-      : "0";
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this sampling record?")) return;
+    try {
+      await deleteGrowthRecord(id, token);
+      setGrowthRecords((prev) => prev.filter((r) => r.id !== id));
+    } catch (err: any) {
+      alert(err?.message || "Failed to delete record");
+    }
+  };
 
-  const avgFCR =
-    growthRecords.length > 0
-      ? (growthRecords.reduce((sum, r) => sum + (r.fcr ?? r.feedConversionRate ?? 1.2), 0) / growthRecords.length).toFixed(2)
-      : "1.20";
+  const totalSamples = growthRecords.reduce((sum, r) => sum + (r.sampleCount || 0), 0);
 
-  const feedEfficiencyPct = ((1 / Number(avgFCR || 1.2)) * 100).toFixed(1);
+  const avgWeight = growthRecords.length > 0
+    ? (growthRecords.reduce((sum, r) => sum + (r.avgWeightGrams || 0), 0) / growthRecords.length).toFixed(1)
+    : "0.0";
+
+  const validFcrRecords = growthRecords.filter((r) => r.fcr && r.fcr > 0);
+  const avgFCR = validFcrRecords.length > 0
+    ? (validFcrRecords.reduce((sum, r) => sum + r.fcr, 0) / validFcrRecords.length).toFixed(2)
+    : "0.00";
+
+  const feedEfficiencyPct = Number(avgFCR) > 0
+    ? ((1 / Number(avgFCR)) * 100).toFixed(1)
+    : "0.0";
 
   const kpiCards = [
     {
@@ -210,13 +216,13 @@ const GrowthPage = () => {
         </div>
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-primary text-primary-foreground h-11 px-4 py-2 rounded-lg shadow-sm hover:opacity-90 transition-all flex items-center justify-center gap-2">
-              <PlusCircle className="w-4 h-4" />
-              <span>Record New Sampling</span>
-            </Button>
-          </DialogTrigger>
-          
+          <DialogTrigger>
+              <Button className="bg-primary text-primary-foreground h-11 px-4 py-2 rounded-lg shadow-sm hover:opacity-90 transition-all flex items-center justify-center gap-2">
+                <PlusCircle className="w-4 h-4" />
+                <span>Record New Sampling</span>
+              </Button>
+            </DialogTrigger>
+
           <DialogContent className="sm:max-w-xl p-6">
             <DialogHeader>
               <DialogTitle>Record Growth Sampling</DialogTitle>
@@ -227,9 +233,7 @@ const GrowthPage = () => {
             <form onSubmit={handleSubmit}>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="pondName" className="text-right">
-                    Pond
-                  </Label>
+                  <Label htmlFor="pondName" className="text-right">Pond</Label>
                   <Select onValueChange={handlePondSelect} value={formState.pondName}>
                     <SelectTrigger className="col-span-3 h-11">
                       <SelectValue placeholder="Select a pond" />
@@ -244,9 +248,7 @@ const GrowthPage = () => {
                   </Select>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="species" className="text-right">
-                    Species
-                  </Label>
+                  <Label htmlFor="species" className="text-right">Species</Label>
                   <Input
                     id="species"
                     value={formState.species}
@@ -256,9 +258,7 @@ const GrowthPage = () => {
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="sampleDate" className="text-right">
-                    Sample Date
-                  </Label>
+                  <Label htmlFor="sampleDate" className="text-right">Sample Date</Label>
                   <Input
                     id="sampleDate"
                     type="date"
@@ -268,22 +268,18 @@ const GrowthPage = () => {
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="sampleCount" className="text-right">
-                    Sample Count
-                  </Label>
+                  <Label htmlFor="sampleCount" className="text-right">Sample Count</Label>
                   <Input
                     id="sampleCount"
                     type="number"
                     value={formState.sampleCount}
                     onChange={handleInputChange}
                     className="col-span-3 rounded-md h-11"
-                    placeholder="e.g., 30 fish weighed"
+                    placeholder="e.g., 30"
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="avgWeightGrams" className="text-right">
-                    Avg Weight (g)
-                  </Label>
+                  <Label htmlFor="avgWeightGrams" className="text-right">Avg Weight (g)</Label>
                   <Input
                     id="avgWeightGrams"
                     type="number"
@@ -295,9 +291,7 @@ const GrowthPage = () => {
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="totalFeedUsedKg" className="text-right">
-                    Feed Used (kg)
-                  </Label>
+                  <Label htmlFor="totalFeedUsedKg" className="text-right">Feed Used (kg)</Label>
                   <Input
                     id="totalFeedUsedKg"
                     type="number"
@@ -308,7 +302,7 @@ const GrowthPage = () => {
                     placeholder="e.g., 120"
                   />
                 </div>
-                {error && <p className="col-span-4 text-sm text-red-600 text-center">{error}</p>}
+                {formError && <p className="col-span-4 text-sm text-red-600 text-center font-medium">{formError}</p>}
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
@@ -323,7 +317,18 @@ const GrowthPage = () => {
         </Dialog>
       </header>
 
-      {/* KPI Section */}
+      {error && (
+        <div className="mb-6 p-4 rounded-xl border border-red-200 bg-red-50 dark:bg-red-950/40 dark:border-red-900 flex items-center justify-between text-red-800 dark:text-red-300">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            <p className="text-sm">{error}</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={fetchRecords} className="border-red-300 text-red-800 hover:bg-red-100 dark:border-red-800 dark:text-red-200">
+            Retry Connection
+          </Button>
+        </div>
+      )}
+
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {kpiCards.map((card) => {
           const Icon = card.icon;
@@ -349,13 +354,12 @@ const GrowthPage = () => {
         })}
       </section>
 
-      {/* Growth Records Table */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">
             Sampling Logs & Performance
           </h2>
-          <span className="text-xs text-muted-foreground">Updated in real-time</span>
+          <span className="text-xs text-muted-foreground">Updated live</span>
         </div>
 
         {loading ? (
@@ -369,30 +373,15 @@ const GrowthPage = () => {
             <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-800">
               <thead className="bg-gray-50 dark:bg-slate-800/50">
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Pond
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Species
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Sample Count
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Avg Weight (g)
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Feed Used (kg)
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    FCR
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Recorded By
-                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pond</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Species</th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Count</th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Avg Wt (g)</th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Feed (kg)</th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">FCR</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Recorded By</th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-200 dark:divide-slate-800">
@@ -418,17 +407,27 @@ const GrowthPage = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       <span className={`px-2.5 py-0.5 inline-flex text-xs font-semibold rounded-full ${
-                        (record.fcr || 1.2) <= 1.2
+                        record.fcr <= 1.2
                           ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                          : (record.fcr || 1.2) <= 1.4
+                          : record.fcr <= 1.4
                           ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
                           : "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300"
                       }`}>
-                        {(record.fcr || 1.2).toFixed(2)}
+                        {record.fcr.toFixed(2)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-slate-400">
                       {record.recordedBy}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(record.id)}
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/50"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </td>
                   </tr>
                 ))}
