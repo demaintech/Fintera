@@ -67,15 +67,15 @@ const nextConfig = {
   },
 
   // Redirects
-  async redirects() {
-    return [
-      {
-        source: '/admin',
-        destination: '/admin/analytics',
-        permanent: false,
-      },
-    ];
-  },
+  // async redirects() {
+  //   return [
+  //     {
+  //       source: '/admin',
+  //       destination: '/admin/analytics',
+  //       permanent: false,
+  //     },
+  //   ];
+  // },
 };
 
 export default nextConfig;
