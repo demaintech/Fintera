@@ -30,7 +30,62 @@ import {
   type HarvestMethod,
 } from '@/lib/harvest-api';
 
-const POND_OPTIONS = ['Pond Alpha', 'Pond Beta', 'Pond Gamma', 'Main Koi Pond', 'Alpha-1'];
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://fintera-aquaculture-bckend.onrender.com";
+
+export type PondStatus = 'Active' | 'Inactive' | 'Maintenance';
+
+export interface Pond {
+  id: string;
+  name: string;
+  location: string;
+  status: PondStatus;
+  pondType: string;
+  pondCapacity: number;
+  waterTemp: number;
+  phLevel: number;
+  lastHarvestDate: string | null;
+  currentStock: {
+    quantity: number;
+    species: string;
+  };
+}
+
+const getHeaders = (token: string | null) => ({
+  "Content-Type": "application/json",
+  ...(token ? { Authorization: `Bearer ${token}` } : {}),
+});
+
+const transformPondData = (rawPond: any): Pond => ({
+  id: String(rawPond.pond_id ?? rawPond.id ?? rawPond.pond_name),
+  name: rawPond.pond_name || rawPond.name || "Unnamed Pond",
+  location: rawPond.pond_location || rawPond.location || "N/A",
+  status: (rawPond.pond_status || rawPond.status || "Active") as PondStatus,
+  pondType: rawPond.pond_type || rawPond.pondType || "Standard",
+  pondCapacity: Number(rawPond.pond_capacity || rawPond.pondCapacity || 0),
+  waterTemp: Number(rawPond.water_temp || rawPond.waterTemp || 0),
+  phLevel: Number(rawPond.pH_level ?? rawPond.ph_level ?? rawPond.phLevel ?? 7.0),
+  lastHarvestDate: rawPond.last_harvest_date || rawPond.lastHarvestDate || null,
+  currentStock: {
+    quantity: Number(rawPond.pond_stock_quantity || rawPond.currentStock?.quantity || 0),
+    species: rawPond.species_in_pond || rawPond.currentStock?.species || "Unspecified",
+  },
+});
+
+export const getPonds = async (token: string | null): Promise<Pond[]> => {
+  const response = await fetch(`${API_URL}/ponds/`, {
+    method: "GET",
+    headers: getHeaders(token),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to fetch ponds");
+  }
+
+  const result = await response.json();
+  const list = Array.isArray(result) ? result : result.data || [];
+  return list.map(transformPondData);
+};
 
 const HarvestPage = () => {
   const router = useRouter();
@@ -38,6 +93,7 @@ const HarvestPage = () => {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [harvestRecords, setHarvestRecords] = useState<HarvestRecord[]>([]);
+  const [ponds, setPonds] = useState<Pond[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -64,10 +120,14 @@ const HarvestPage = () => {
     setError('');
 
     try {
-      const records = await getHarvestRecords(token);
+      const [records, pondList] = await Promise.all([
+        getHarvestRecords(token),
+        getPonds(token),
+      ]);
       setHarvestRecords(records);
+      setPonds(pondList);
     } catch (err: any) {
-      setError(err?.message || 'Failed to fetch harvest records');
+      setError(err?.message || 'Failed to fetch harvest records or ponds');
     } finally {
       setLoading(false);
     }
@@ -91,7 +151,16 @@ const HarvestPage = () => {
   };
 
   const handlePondSelect = (value: string | null) => {
-    setFormState((prev) => ({ ...prev, pondName: value ?? '' }));
+    if (!value) return;
+
+    const selectedPond = ponds.find((p) => p.name === value);
+    const autoSpecies = selectedPond?.currentStock?.species || formState.species;
+
+    setFormState((prev) => ({
+      ...prev,
+      pondName: value,
+      species: autoSpecies !== "Unspecified" ? autoSpecies : prev.species,
+    }));
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -195,9 +264,15 @@ const HarvestPage = () => {
                       <SelectValue placeholder="Select a pond" />
                     </SelectTrigger>
                     <SelectContent>
-                      {POND_OPTIONS.map((pond) => (
-                        <SelectItem key={pond} value={pond}>{pond}</SelectItem>
-                      ))}
+                      {ponds.length === 0 ? (
+                        <div className="p-2 text-sm text-slate-500 text-center">No ponds available</div>
+                      ) : (
+                        ponds.map((pond) => (
+                          <SelectItem key={pond.id} value={pond.name}>
+                            {pond.name} ({pond.status})
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>

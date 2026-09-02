@@ -1,0 +1,12 @@
+.git
+.gitignore
+README.md
+.eslintignore
+node_modules
+npm-debug.log*
+.next
+.env.local
+.env.*.local
+*.test.ts
+*.test.tsx
+.DS_Store

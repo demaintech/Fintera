@@ -11,6 +11,7 @@ import {
   getFeedInventory,
   FeedInventoryRecord,
 } from '@/lib/feed-inventory-api';
+import { getPonds, Pond } from '@/lib/pond-api'; // Imported pond API module
 
 // --- Reusable UI Components ---
 
@@ -99,6 +100,7 @@ const formatCurrency = (amount: number) =>
 export default function FeedingLogsPage() {
   const [feedingLogs, setFeedingLogs] = useState<FeedingLogItem[]>([]);
   const [inventoryList, setInventoryList] = useState<FeedInventoryRecord[]>([]);
+  const [pondsList, setPondsList] = useState<Pond[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -111,7 +113,7 @@ export default function FeedingLogsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  
+
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     pond_name: '',
@@ -122,18 +124,20 @@ export default function FeedingLogsPage() {
     notes: '',
   });
 
-  // --- Fetch Logs & Inventory ---
+  // --- Fetch Logs, Inventory, & Ponds ---
   const loadData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [logsRes, invList] = await Promise.all([
+      const [logsRes, invList, pondRes] = await Promise.all([
         getFeedingLogs().catch(() => ({ status: 'success', data: [] })),
         getFeedInventory().catch(() => []),
+        getPonds(null).catch(() => []),
       ]);
 
       setFeedingLogs(logsRes.data || []);
       setInventoryList(invList || []);
+      setPondsList(pondRes || []);
     } catch (err: any) {
       setError(err.message || 'Error loading page data.');
     } finally {
@@ -146,6 +150,19 @@ export default function FeedingLogsPage() {
   }, []);
 
   // --- Dynamic Form Handlers ---
+
+  const handlePondChange = (selectedPondName: string) => {
+    const selectedPond = pondsList.find(
+      (pond) => pond.name === selectedPondName
+    );
+
+    setFormData((prev) => ({
+      ...prev,
+      pond_name: selectedPondName,
+      // Auto-populate species if configured on selected pond object
+      species: selectedPond?.currentStock?.species || prev.species,
+    }));
+  };
 
   const handleFeedTypeChange = (selectedFeedName: string) => {
     const selectedItem = inventoryList.find(
@@ -191,6 +208,11 @@ export default function FeedingLogsPage() {
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
+
+    if (!formData.pond_name) {
+      setFormError('Please select a pond.');
+      return;
+    }
 
     if (!formData.feed_type_name) {
       setFormError('Please select a feed type.');
@@ -418,14 +440,33 @@ export default function FeedingLogsPage() {
 
                 <div>
                   <Label htmlFor="pond_name">Pond Name</Label>
-                  <Input
-                    id="pond_name"
-                    type="text"
-                    placeholder="e.g. Main Pond"
-                    required
-                    value={formData.pond_name}
-                    onChange={(e) => setFormData({ ...formData, pond_name: e.target.value })}
-                  />
+                  {pondsList.length > 0 ? (
+                    <Select
+                      id="pond_name"
+                      required
+                      value={formData.pond_name}
+                      onChange={(e) => handlePondChange(e.target.value)}
+                    >
+                      <option value="">Select pond...</option>
+                      {pondsList.map((pond) => {
+                        const name = pond.name || 'Unnamed Pond';
+                        return (
+                          <option key={pond.id || name} value={name}>
+                            {name} {pond.status ? `(${pond.status})` : ''}
+                          </option>
+                        );
+                      })}
+                    </Select>
+                  ) : (
+                    <Input
+                      id="pond_name"
+                      type="text"
+                      placeholder="e.g. Main Pond"
+                      required
+                      value={formData.pond_name}
+                      onChange={(e) => setFormData({ ...formData, pond_name: e.target.value })}
+                    />
+                  )}
                 </div>
               </div>
 

@@ -8,7 +8,7 @@ import {
   ChartLegend,
   ChartLegendContent,
 } from "@/components/ui/chart";
-import { Area, AreaChart, CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
+import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import {
   ArrowUpRight,
   DollarSign,
@@ -26,13 +26,17 @@ import { getFeedInventory } from "@/lib/feed-inventory-api";
 import { getMortalityRecords, MortalityRecord } from "@/lib/mortality-api";
 import { getFeedingLogs } from "@/lib/feeding-logs-api";
 import { getSalesRecords, SaleRecord } from "@/lib/sales-api";
+import { getGrowthRecords, GrowthRecord } from "@/lib/growth-api";
 
 const chartConfig = {
   revenue: {
-    label: "Revenue",
-    color: "hsl(var(--primary))",
+    label: "Revenue ($)",
+    color: "#2563eb",
   },
-  sales: { label: "Sales", color: "hsl(var(--secondary))" },
+  sales: { 
+    label: "Sales Count", 
+    color: "#f97316", // Vibrant Orange
+  },
 };
 
 const mortalityChartConfig = {
@@ -58,12 +62,13 @@ const Page = () => {
     overallMortalityRate: 0,
     growthRate: null as number | null,
     feedEfficiency: 0,
+    overallEfficiency: 0,
     totalRevenue: 0,
     totalSalesCount: 0,
   });
 
   const [salesTrendData, setSalesTrendData] = useState<
-    { month: string; revenue: number; sales: number }[]
+    { date: string; revenue: number; sales: number }[]
   >([]);
 
   const [mortalityChartData, setMortalityChartData] = useState<
@@ -76,16 +81,22 @@ const Page = () => {
       setLoading(true);
 
       try {
-        const [ponds, stocks, feeds, mortalities, feedingLogsRes, salesRes] = await Promise.all([
+        const [
+          ponds,
+          stocks,
+          feeds,
+          mortalities,
+          feedingLogsRes,
+          salesRes,
+          growthRes,
+        ] = await Promise.all([
           getPonds(token).catch(() => []),
           getStockRecords(token).catch(() => []),
           getFeedInventory(token).catch(() => []),
           getMortalityRecords(token).catch(() => []),
-          getFeedingLogs(token).catch((err) => {
-            console.error("DEBUG: Failed to fetch feeding logs", err);
-            return null;
-          }),
+          getFeedingLogs(token).catch(() => null),
           getSalesRecords(token).catch(() => []),
+          getGrowthRecords(token).catch(() => []),
         ]);
 
         const pondCount = Array.isArray(ponds) ? ponds.length : 0;
@@ -98,12 +109,10 @@ const Page = () => {
           ? stocks.filter((stock) => stock.status === "Completed").length
           : 0;
 
-        // Unwrap Feeds safely
         const safeFeeds: any[] = Array.isArray(feeds)
           ? feeds
           : (feeds as any)?.data || (feeds as any)?.feeds || [];
 
-        // Unwrap Feeding Logs safely
         let rawLogsArray: any[] = [];
         if (Array.isArray(feedingLogsRes)) {
           rawLogsArray = feedingLogsRes;
@@ -116,7 +125,6 @@ const Page = () => {
             [];
         }
 
-        // Aggregate Feed Consumption by all possible identifiers
         const usageByFeedType: Record<string, number> = {};
         let aggregateFeed = 0;
 
@@ -132,41 +140,13 @@ const Page = () => {
             .trim()
             .toLowerCase();
 
-          const feedNameKey = (
-            log.feed_name ||
-            log.feedName ||
-            log.name ||
-            ""
-          )
-            .toString()
-            .trim()
-            .toLowerCase();
-
-          const feedTypeKey = (
-            log.feed_type ||
-            log.feedType ||
-            log.feed_type_name ||
-            ""
-          )
-            .toString()
-            .trim()
-            .toLowerCase();
-
           const rawVal =
             log.feed_quantity ??
             log.quantity_kg ??
             log.quantityKg ??
             log.quantity_used ??
             log.quantity ??
-            log.feed_amount ??
-            log.feedAmount ??
             log.amount ??
-            log.used_kg ??
-            log.weight_kg ??
-            log.qty ??
-            log.feedQuantity ??
-            log.feed?.quantity ??
-            log.details?.quantity ??
             0;
 
           const parsedVal =
@@ -175,39 +155,21 @@ const Page = () => {
               : parseFloat(String(rawVal).replace(/[^0-9.]/g, ""));
 
           const qtyKg = isNaN(parsedVal) ? 0 : parsedVal;
-
           aggregateFeed += qtyKg;
 
           if (feedIdKey) usageByFeedType[feedIdKey] = (usageByFeedType[feedIdKey] || 0) + qtyKg;
-          if (feedNameKey) usageByFeedType[feedNameKey] = (usageByFeedType[feedNameKey] || 0) + qtyKg;
-          if (feedTypeKey) usageByFeedType[feedTypeKey] = (usageByFeedType[feedTypeKey] || 0) + qtyKg;
         });
 
-        // Dynamic Remaining Feed Stock Calculation
         let totalAvailableFeedKg = 0;
-
         safeFeeds.forEach((item: any) => {
-          const itemId = (item.id || item._id || item.feed_inventory_id || "").toString().trim().toLowerCase();
-          const feedNameKey = (item.feed_name || item.name || "").toString().trim().toLowerCase();
-          const feedTypeKey = (item.feed_type || item.type || "").toString().trim().toLowerCase();
-
-          const deductedKg =
-            (itemId && usageByFeedType[itemId]) ||
-            (feedNameKey && usageByFeedType[feedNameKey]) ||
-            (feedTypeKey && usageByFeedType[feedTypeKey]) ||
-            0;
-
+          const itemId = (item.id || item._id || "").toString().trim().toLowerCase();
+          const deductedKg = (itemId && usageByFeedType[itemId]) || 0;
           const initialBags = Number(item.quantity) || 0;
-          const weightPerBag = Number(item.av_weight_per_bag || item.weight_per_bag || item.bag_weight) || 0;
-
-          // Fallback: If weight per bag is not provided, treat quantity as direct KG
+          const weightPerBag = Number(item.av_weight_per_bag || item.weight_per_bag) || 0;
           const initialKg = weightPerBag > 0 ? initialBags * weightPerBag : initialBags;
-
-          const remainingKg = Math.max(0, initialKg - deductedKg);
-          totalAvailableFeedKg += remainingKg;
+          totalAvailableFeedKg += Math.max(0, initialKg - deductedKg);
         });
 
-        // Sales Metrics Calculations
         const salesList: SaleRecord[] = Array.isArray(salesRes) ? salesRes : [];
         const calculatedTotalRevenue = salesList.reduce(
           (acc, sale) => acc + (sale.cost + sale.profit),
@@ -215,43 +177,50 @@ const Page = () => {
         );
         const calculatedSalesCount = salesList.length;
 
-        // Group Sales Data by Month for Chart Trend
-        const monthlyMap: Record<string, { revenue: number; sales: number; dateObj: Date }> = {};
+        const dailyMap: Record<string, { revenue: number; sales: number; dateObj: Date }> = {};
 
         salesList.forEach((sale) => {
           if (!sale.saleDate) return;
           const dateObj = new Date(sale.saleDate);
           if (isNaN(dateObj.getTime())) return;
 
-          const monthKey = dateObj.toLocaleString("en-US", { month: "long" });
+          const dateKey = dateObj.toISOString().split('T')[0];
 
-          if (!monthlyMap[monthKey]) {
-            monthlyMap[monthKey] = { revenue: 0, sales: 0, dateObj };
+          if (!dailyMap[dateKey]) {
+            dailyMap[dateKey] = { revenue: 0, sales: 0, dateObj };
           }
 
-          monthlyMap[monthKey].revenue += sale.cost + sale.profit;
-          monthlyMap[monthKey].sales += 1;
+          dailyMap[dateKey].revenue += sale.cost + sale.profit;
+          dailyMap[dateKey].sales += 1;
         });
 
-        const sortedTrendData = Object.entries(monthlyMap)
-          .sort((a, b) => a[1].dateObj.getTime() - b[1].dateObj.getTime())
-          .map(([month, data]) => ({
-            month,
-            revenue: data.revenue,
-            sales: data.sales,
-          }));
+        const sortedTrendData = Object.entries(dailyMap)
+          .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
+          .map(([dateKey, data]) => {
+            const dateObj = new Date(dateKey);
+            return {
+              date: dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+              revenue: Math.round(data.revenue * 100) / 100,
+              sales: data.sales,
+            };
+          });
 
         setSalesTrendData(sortedTrendData);
 
-        const calculatedFeedEfficiency =
-          totalAvailableFeedKg > 0 && totalStockFromRecords > 0
-            ? Math.min(
-                Math.round(
-                  (totalStockFromRecords / (totalStockFromRecords + totalAvailableFeedKg * 0.1)) * 100
-                ),
-                100
-              )
-            : 0;
+        const growthList: GrowthRecord[] = Array.isArray(growthRes) ? growthRes : [];
+        let calculatedFeedEfficiency = 0;
+
+        if (growthList.length > 0) {
+          const validEfficiencies = growthList
+            .map((rec) => rec.fcr || rec.feedConversionRate)
+            .filter((fcr) => fcr > 0)
+            .map((fcr) => (1 / fcr) * 100);
+
+          if (validEfficiencies.length > 0) {
+            const sumEfficiency = validEfficiencies.reduce((acc, val) => acc + val, 0);
+            calculatedFeedEfficiency = Number((sumEfficiency / validEfficiencies.length).toFixed(1));
+          }
+        }
 
         const mortalityList: MortalityRecord[] = Array.isArray(mortalities) ? mortalities : [];
         const totalMortalityCount = mortalityList.reduce((acc, m) => acc + (m.quantity || 0), 0);
@@ -260,6 +229,8 @@ const Page = () => {
           totalStockFromRecords > 0
             ? (totalMortalityCount / (totalStockFromRecords + totalMortalityCount)) * 100
             : 0;
+
+        const survivalRate = Math.max(0, 100 - overallRate);
 
         const groupedByDate = mortalityList.reduce((acc, record) => {
           const rawDate = record.dateRecorded !== "N/A" ? record.dateRecorded : "Unknown";
@@ -293,6 +264,38 @@ const Page = () => {
         });
 
         setMortalityChartData(formattedChartData);
+
+        let calculatedGrowthRate: number | null = null;
+        if (growthList.length >= 2) {
+          const sortedGrowth = [...growthList].sort(
+            (a, b) => new Date(a.sampleDate).getTime() - new Date(b.sampleDate).getTime()
+          );
+
+          const firstRecord = sortedGrowth[0];
+          const lastRecord = sortedGrowth[sortedGrowth.length - 1];
+
+          const wInitial = firstRecord.avgWeightGrams;
+          const wFinal = lastRecord.avgWeightGrams;
+
+          const dateInitial = new Date(firstRecord.sampleDate);
+          const dateFinal = new Date(lastRecord.sampleDate);
+
+          const diffDays = Math.max(
+            1,
+            Math.round((dateFinal.getTime() - dateInitial.getTime()) / (1000 * 3600 * 24))
+          );
+
+          if (wInitial > 0 && wFinal > wInitial) {
+            const sgr = ((Math.log(wFinal) - Math.log(wInitial)) / diffDays) * 100;
+            calculatedGrowthRate = Number(sgr.toFixed(2));
+          }
+        }
+
+        const growthNormalized = calculatedGrowthRate ? Math.min(calculatedGrowthRate * 30, 100) : 70;
+        const calculatedOverallEfficiency = Math.round(
+          0.4 * survivalRate + 0.4 * Math.min(calculatedFeedEfficiency, 100) + 0.2 * growthNormalized
+        );
+
         setMetricsData({
           totalFishes: totalStockFromRecords,
           totalPonds: pondCount,
@@ -300,8 +303,9 @@ const Page = () => {
           totalFeedsKg: totalAvailableFeedKg,
           weeklyFeedConsumedKg: aggregateFeed,
           overallMortalityRate: overallRate,
-          growthRate: null,
+          growthRate: calculatedGrowthRate,
           feedEfficiency: calculatedFeedEfficiency,
+          overallEfficiency: calculatedOverallEfficiency,
           totalRevenue: calculatedTotalRevenue,
           totalSalesCount: calculatedSalesCount,
         });
@@ -315,7 +319,6 @@ const Page = () => {
     fetchDashboardMetrics();
   }, [token]);
 
-  // Strictly outputs values in Kilograms without auto-converting to Tonnes
   const formatFeedDisplay = (totalKg: number) => {
     if (loading) return "...";
     return `${Math.round(totalKg).toLocaleString()} kg`;
@@ -326,15 +329,6 @@ const Page = () => {
     {
       label: "Feed consumption this week",
       value: formatFeedDisplay(metricsData.weeklyFeedConsumedKg),
-    },
-    {
-      label: "Growth rate",
-      value:
-        loading
-          ? "..."
-          : metricsData.growthRate !== null
-          ? `+${metricsData.growthRate}%`
-          : "Pending API",
     },
   ];
 
@@ -411,8 +405,10 @@ const Page = () => {
             </p>
           </div>
           <div className="rounded-lg sm:rounded-2xl border border-border/20 bg-background/80 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm shadow-sm">
-            <p className="text-foreground/60">This week</p>
-            <p className="mt-1 text-xl font-semibold">+18.2% efficiency</p>
+            <p className="text-foreground/60">Overall Ops Efficiency</p>
+            <p className="mt-1 text-xl font-semibold">
+              {loading ? "..." : `${metricsData.overallEfficiency}% Score`}
+            </p>
           </div>
         </div>
       </section>
@@ -425,7 +421,7 @@ const Page = () => {
               key={item.title}
               className="rounded-lg sm:rounded-2xl border border-gray-500 bg-background p-3 sm:p-5 shadow-sm transition hover:-translate-y-0.5"
             >
-              <div className={`rounded-lg sm:rounded-xl bg-gradient-to-br ${item.accent} p-2 sm:p-3`}>
+              <div className={`rounded-lg sm:rounded-xl bg-linear-to-br ${item.accent} p-2 sm:p-3`}>
                 <Icon className="h-5 sm:h-6 w-5 sm:w-6 text-foreground" />
               </div>
               <div className="mt-3 sm:mt-4 flex items-start justify-between gap-2 sm:gap-3">
@@ -463,38 +459,60 @@ const Page = () => {
                 No sales records available to render trend.
               </div>
             ) : (
-              <AreaChart accessibilityLayer data={salesTrendData} margin={{ left: 12, right: 12 }}>
-                <CartesianGrid vertical={false} />
+              <LineChart accessibilityLayer data={salesTrendData} margin={{ left: 12, right: 12, bottom: 70 }}>
+                <CartesianGrid vertical={false} strokeDasharray="3 3" />
                 <XAxis
-                  dataKey="month"
+                  dataKey="date"
                   tickLine={false}
                   axisLine={false}
-                  tickMargin={8}
-                  tickFormatter={(value) => value.slice(0, 3)}
+                  tickMargin={12}
+                  angle={-45}
+                  textAnchor="end"
+                  height={80}
+                  interval={0}
                 />
                 <YAxis
+                  yAxisId="left"
                   tickLine={false}
                   axisLine={false}
                   tickMargin={8}
                   tickFormatter={(value) => `$${value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value}`}
                 />
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  allowDecimals={false}
+                />
                 <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
-                <defs>
-                  <linearGradient id="fillRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--color-revenue)" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="var(--color-revenue)" stopOpacity={0.1} />
-                  </linearGradient>
-                </defs>
-                <Area
+                <Line
+                  yAxisId="left"
                   dataKey="revenue"
-                  type="natural"
-                  fill="url(#fillRevenue)"
-                  fillOpacity={0.4}
-                  stroke="var(--color-revenue)"
-                  stackId="a"
+                  type="monotone"
+                  stroke="#2563eb"
+                  strokeWidth={3}
+                  fill="none"
+                  dot={{ r: 5, fill: "#2563eb" }}
+                  activeDot={{ r: 7 }}
+                  isAnimationActive={true}
+                  name="Revenue"
+                />
+                <Line
+                  yAxisId="right"
+                  dataKey="sales"
+                  type="monotone"
+                  stroke="#f97316"
+                  strokeWidth={3}
+                  fill="none"
+                  dot={{ r: 5, fill: "#f97316" }}
+                  activeDot={{ r: 7 }}
+                  isAnimationActive={true}
+                  name="Sales Count"
                 />
                 <ChartLegend content={<ChartLegendContent />} />
-              </AreaChart>
+              </LineChart>
             )}
           </ChartContainer>
         </div>
@@ -537,9 +555,10 @@ const Page = () => {
                     dataKey="count"
                     name="Mortality Count"
                     type="monotone"
-                    stroke="var(--color-count)"
+                    stroke="#ef4444"
                     strokeWidth={3}
-                    dot={{ r: 4 }}
+                    fill="none"
+                    dot={{ r: 4, fill: "#ef4444" }}
                     activeDot={{ r: 6 }}
                     isAnimationActive={true}
                     animationDuration={800}
@@ -564,7 +583,7 @@ const Page = () => {
       </section>
 
       <section className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="rounded-2xl sm:rounded-3xl border border-gray-500 bg-background p-4 sm:p-6 shadow-sm">
+        <div className="rounded-2xl hidden sm:rounded-3xl border border-gray-500 bg-background p-4 sm:p-6 shadow-sm">
           <h2 className="text-lg sm:text-xl font-semibold">Upcoming Tasks</h2>
           <ul className="mt-3 sm:mt-5 space-y-2 sm:space-y-3 text-xs sm:text-sm text-foreground/70">
             <li className="rounded-lg sm:rounded-xl border border-gray-500 bg-muted/30 px-3 sm:px-4 py-2 sm:py-3">
@@ -579,7 +598,7 @@ const Page = () => {
           </ul>
         </div>
 
-        <div className="rounded-2xl sm:rounded-3xl border border-gray-500 bg-background p-4 sm:p-6 shadow-sm">
+        <div className="rounded-2xl hidden sm:rounded-3xl border border-gray-500 bg-background p-4 sm:p-6 shadow-sm">
           <h2 className="text-lg sm:text-xl font-semibold">Pond Status</h2>
           <div className="mt-3 sm:mt-5 space-y-2 sm:space-y-3 text-xs sm:text-sm">
             <div className="flex items-center justify-between rounded-lg sm:rounded-xl border border-gray-500 bg-muted/30 px-3 sm:px-4 py-2 sm:py-3">
@@ -604,7 +623,7 @@ const Page = () => {
               {loading ? "..." : `${metricsData.feedEfficiency}%`}
             </p>
             <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-foreground/60">
-              Conversion efficiency this month
+              Biological conversion efficiency across sampling records
             </p>
           </div>
         </div>

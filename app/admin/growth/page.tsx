@@ -29,8 +29,7 @@ import {
   deleteGrowthRecord,
   type GrowthRecord,
 } from "@/lib/growth-api";
-
-const POND_OPTIONS = ["Pond Alpha", "Pond Beta", "Pond Gamma", "Main Koi Pond", "Alpha-1"];
+import { getPonds, type Pond } from "@/lib/pond-api"; // Integrated Pond API Service
 
 const GrowthPage = () => {
   const router = useRouter();
@@ -38,6 +37,8 @@ const GrowthPage = () => {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [growthRecords, setGrowthRecords] = useState<GrowthRecord[]>([]);
+  const [ponds, setPonds] = useState<Pond[]>([]);
+  const [isLoadingPonds, setIsLoadingPonds] = useState(false);
   const [error, setError] = useState("");
   const [formError, setFormError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -60,35 +61,55 @@ const GrowthPage = () => {
     }
   }, [isAuthenticated, isAuthLoading, router]);
 
-  const fetchRecords = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     if (!token || !isAuthenticated) return;
     setLoading(true);
+    setIsLoadingPonds(true);
     setError("");
 
     try {
-      const records = await getGrowthRecords(token);
+      // Fetch growth records and user's real backend ponds concurrently
+      const [records, pondsData] = await Promise.all([
+        getGrowthRecords(token),
+        getPonds(token),
+      ]);
+
       setGrowthRecords(Array.isArray(records) ? records : []);
+      setPonds(Array.isArray(pondsData) ? pondsData : []);
     } catch (err: any) {
-      setError(err?.message || "Failed to fetch growth sampling records from server.");
+      setError(err?.message || "Failed to fetch growth sampling records or ponds.");
       setGrowthRecords([]);
+      setPonds([]);
     } finally {
       setLoading(false);
+      setIsLoadingPonds(false);
     }
   }, [token, isAuthenticated]);
 
   useEffect(() => {
     if (token && isAuthenticated) {
-      fetchRecords();
+      fetchData();
     }
-  }, [token, isAuthenticated, fetchRecords]);
+  }, [token, isAuthenticated, fetchData]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
     setFormState((prev) => ({ ...prev, [id]: value }));
   };
 
-  const handlePondSelect = (value: string | null) => {
-    setFormState((prev) => ({ ...prev, pondName: value ?? "" }));
+  // Handle Pond selection and auto-fill species if present on chosen pond
+  const handlePondSelect = (selectedPondName: string | null) => {
+    if (!selectedPondName) return;
+
+    const matchedPond = ponds.find((p) => p.name === selectedPondName);
+    
+    setFormState((prev) => ({
+      ...prev,
+      pondName: selectedPondName,
+      species: matchedPond?.currentStock?.species !== "Unspecified" 
+        ? matchedPond?.currentStock?.species || prev.species 
+        : prev.species,
+    }));
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -148,19 +169,22 @@ const GrowthPage = () => {
     }
   };
 
+  // Metric Aggregations
   const totalSamples = growthRecords.reduce((sum, r) => sum + (r.sampleCount || 0), 0);
 
   const avgWeight = growthRecords.length > 0
     ? (growthRecords.reduce((sum, r) => sum + (r.avgWeightGrams || 0), 0) / growthRecords.length).toFixed(1)
     : "0.0";
 
-  const validFcrRecords = growthRecords.filter((r) => r.fcr && r.fcr > 0);
-  const avgFCR = validFcrRecords.length > 0
-    ? (validFcrRecords.reduce((sum, r) => sum + r.fcr, 0) / validFcrRecords.length).toFixed(2)
-    : "0.00";
+  const validFcrRecords = growthRecords.filter((r) => (r.fcr || r.feedConversionRate || 0) > 0);
+  const avgFCRVal = validFcrRecords.length > 0
+    ? validFcrRecords.reduce((sum, r) => sum + (r.fcr || r.feedConversionRate || 0), 0) / validFcrRecords.length
+    : 0;
 
-  const feedEfficiencyPct = Number(avgFCR) > 0
-    ? ((1 / Number(avgFCR)) * 100).toFixed(1)
+  const avgFCR = avgFCRVal > 0 ? avgFCRVal.toFixed(2) : "0.00";
+
+  const feedEfficiencyPct = avgFCRVal > 0
+    ? ((1 / avgFCRVal) * 100).toFixed(1)
     : "0.0";
 
   const kpiCards = [
@@ -216,12 +240,12 @@ const GrowthPage = () => {
         </div>
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger>
-              <Button className="bg-primary text-primary-foreground h-11 px-4 py-2 rounded-lg shadow-sm hover:opacity-90 transition-all flex items-center justify-center gap-2">
-                <PlusCircle className="w-4 h-4" />
-                <span>Record New Sampling</span>
-              </Button>
-            </DialogTrigger>
+          <DialogTrigger asChild>
+            <Button className="bg-primary text-primary-foreground h-11 px-4 py-2 rounded-lg shadow-sm hover:opacity-90 transition-all flex items-center justify-center gap-2">
+              <PlusCircle className="w-4 h-4" />
+              <span>Record New Sampling</span>
+            </Button>
+          </DialogTrigger>
 
           <DialogContent className="sm:max-w-xl p-6">
             <DialogHeader>
@@ -236,14 +260,20 @@ const GrowthPage = () => {
                   <Label htmlFor="pondName" className="text-right">Pond</Label>
                   <Select onValueChange={handlePondSelect} value={formState.pondName}>
                     <SelectTrigger className="col-span-3 h-11">
-                      <SelectValue placeholder="Select a pond" />
+                      <SelectValue placeholder={isLoadingPonds ? "Loading ponds..." : "Select a pond"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {POND_OPTIONS.map((pond) => (
-                        <SelectItem key={pond} value={pond}>
-                          {pond}
+                      {ponds.length > 0 ? (
+                        ponds.map((pond) => (
+                          <SelectItem key={pond.id} value={pond.name}>
+                            {pond.name} {pond.currentStock?.species ? `(${pond.currentStock.species})` : ''}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="none" disabled>
+                          No active ponds found
                         </SelectItem>
-                      ))}
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -323,7 +353,7 @@ const GrowthPage = () => {
             <AlertCircle className="w-5 h-5 shrink-0" />
             <p className="text-sm">{error}</p>
           </div>
-          <Button variant="outline" size="sm" onClick={fetchRecords} className="border-red-300 text-red-800 hover:bg-red-100 dark:border-red-800 dark:text-red-200">
+          <Button variant="outline" size="sm" onClick={fetchData} className="border-red-300 text-red-800 hover:bg-red-100 dark:border-red-800 dark:text-red-200">
             Retry Connection
           </Button>
         </div>
@@ -385,52 +415,55 @@ const GrowthPage = () => {
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-200 dark:divide-slate-800">
-                {growthRecords.map((record) => (
-                  <tr key={record.id} className="hover:bg-gray-50/50 dark:hover:bg-slate-800/50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-slate-400">
-                      {record.sampleDate}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                      {record.pondName}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-slate-400">
-                      {record.species}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-slate-400 text-center">
-                      {record.sampleCount}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-slate-100 font-semibold text-center">
-                      {record.avgWeightGrams} g
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-slate-400 text-center">
-                      {record.totalFeedUsedKg} kg
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <span className={`px-2.5 py-0.5 inline-flex text-xs font-semibold rounded-full ${
-                        record.fcr <= 1.2
-                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                          : record.fcr <= 1.4
-                          ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
-                          : "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300"
-                      }`}>
-                        {record.fcr.toFixed(2)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-slate-400">
-                      {record.recordedBy}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(record.id)}
-                        className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/50"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
+                {growthRecords.map((record) => {
+                  const currentFcr = record.fcr || record.feedConversionRate || 0;
+                  return (
+                    <tr key={record.id} className="hover:bg-gray-50/50 dark:hover:bg-slate-800/50 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-slate-400">
+                        {record.sampleDate}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                        {record.pondName}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-slate-400">
+                        {record.species}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-slate-400 text-center">
+                        {record.sampleCount}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-slate-100 font-semibold text-center">
+                        {record.avgWeightGrams} g
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-slate-400 text-center">
+                        {record.totalFeedUsedKg} kg
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <span className={`px-2.5 py-0.5 inline-flex text-xs font-semibold rounded-full ${
+                          currentFcr > 0 && currentFcr <= 1.2
+                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                            : currentFcr <= 1.4
+                            ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                            : "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300"
+                        }`}>
+                          {currentFcr.toFixed(2)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-slate-400">
+                        {record.recordedBy}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(record.id)}
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

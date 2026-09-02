@@ -53,7 +53,7 @@ export const ScheduleKpiCards = ({
   ).length;
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Active Schedules</CardTitle>
@@ -88,8 +88,8 @@ export const ScheduleKpiCards = ({
           <p className="text-xs text-muted-foreground">Estimated for today</p>
         </CardContent>
       </Card>
-      <Card className={pondsWithoutSchedule > 0 ? "border-destructive/50" : ""}>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      {/* <Card className={pondsWithoutSchedule > 0 ? "border-destructive/50" : ""}>
+        <CardHeader className="flex flex-row items-center justify-between  space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Ponds Without Schedule</CardTitle>
           <AlertTriangle className={`h-4 w-4 ${pondsWithoutSchedule > 0 ? "text-destructive" : "text-muted-foreground"}`} />
         </CardHeader>
@@ -97,7 +97,7 @@ export const ScheduleKpiCards = ({
           <div className={`text-2xl font-bold ${pondsWithoutSchedule > 0 ? "text-destructive" : ""}`}>{pondsWithoutSchedule}</div>
           <p className="text-xs text-muted-foreground">Ponds missing a feeding plan</p>
         </CardContent>
-      </Card>
+      </Card> */}
     </div>
   );
 };

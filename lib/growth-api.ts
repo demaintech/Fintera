@@ -25,14 +25,16 @@ export interface GrowthRecord {
 
 interface BackendGrowthRecord {
   id: string | number;
-  pond_name: string;
-  species: string;
-  sample_date: string;
-  sample_count: number;
-  av_weight: number;
-  total_feed_used: number;
-  feed_conversion_rate: number;
-  specific_growth_rate: number;
+  pond_name?: string;
+  species?: string;
+  sample_date?: string;
+  sample_count?: number;
+  av_weight?: number;
+  avg_weight?: number;
+  total_feed_used?: number;
+  feed_conversion_rate?: number;
+  fcr?: number;
+  specific_growth_rate?: number;
   recorded_by?: string;
 }
 
@@ -59,18 +61,35 @@ const handleResponse = async (response: Response) => {
   return response.json();
 };
 
+// Pure calculation utility
+export const calculateFCR = (totalFeedKg: number, sampleCount: number, avgWeightGrams: number): number => {
+  const totalBiomassKg = (sampleCount * avgWeightGrams) / 1000;
+  if (totalBiomassKg <= 0) return 0;
+  const fcr = totalFeedKg / totalBiomassKg;
+  return Number(fcr.toFixed(2));
+};
+
 const transformGrowthRecord = (data: BackendGrowthRecord): GrowthRecord => {
-  const fcrVal = Number(data.feed_conversion_rate ?? 0);
+  const sampleCount = Number(data.sample_count || 0);
+  const avgWeightGrams = Number(data.av_weight ?? data.avg_weight ?? 0);
+  const totalFeedUsedKg = Number(data.total_feed_used || 0);
+
+  // Parse backend FCR, fallback to dynamic calculation if backend returns 0/null
+  let rawFcr = Number(data.feed_conversion_rate ?? data.fcr ?? 0);
+  if (rawFcr === 0 && totalFeedUsedKg > 0 && sampleCount > 0 && avgWeightGrams > 0) {
+    rawFcr = calculateFCR(totalFeedUsedKg, sampleCount, avgWeightGrams);
+  }
+
   return {
     id: String(data.id),
     pondName: data.pond_name || '',
     species: data.species || '',
     sampleDate: data.sample_date ? data.sample_date.split('T')[0] : '',
-    sampleCount: Number(data.sample_count || 0),
-    avgWeightGrams: Number(data.av_weight || 0),
-    totalFeedUsedKg: Number(data.total_feed_used || 0),
-    feedConversionRate: fcrVal,
-    fcr: fcrVal,
+    sampleCount,
+    avgWeightGrams,
+    totalFeedUsedKg,
+    feedConversionRate: rawFcr,
+    fcr: rawFcr,
     specificGrowthRate: Number(data.specific_growth_rate || 0),
     recordedBy: data.recorded_by || 'System',
   };
@@ -91,13 +110,19 @@ export const createGrowthRecord = async (
   input: CreateGrowthInput,
   token: string | null
 ): Promise<GrowthRecord> => {
+  // Compute FCR prior to network dispatch
+  const computedFcr = calculateFCR(input.totalFeedUsedKg, input.sampleCount, input.avgWeightGrams);
+
   const payload = {
     pond_name: input.pondName,
     species: input.species,
     sample_date: input.sampleDate,
     sample_count: input.sampleCount,
     av_weight: input.avgWeightGrams,
+    avg_weight: input.avgWeightGrams,
     total_feed_used: input.totalFeedUsedKg,
+    feed_conversion_rate: computedFcr,
+    fcr: computedFcr,
   };
 
   const res = await fetch(`${API_BASE}/growth/`, {

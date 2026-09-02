@@ -1,0 +1,21 @@
+{
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "functions": {
+    "api/**/*.ts": {
+      "maxDuration": 30
+    }
+  },
+  "env": [
+    "NEXT_PUBLIC_API_URL"
+  ],
+  "envPrefix": "NEXT_",
+  "git": {
+    "deploymentEnabled": {
+      "main": true
+    }
+  },
+  "regions": ["iad1"]
+}

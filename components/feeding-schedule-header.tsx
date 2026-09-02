@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { PlusCircle, Calendar as CalendarIcon, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,26 +33,36 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 
+import { useAuth } from "@/lib/auth-context";
+import { getPonds, Pond } from "@/lib/pond-api";
+
 import {
   FeedingSchedule,
   FeedingStatus,
   ScheduleFrequency,
-  MOCK_PONDS,
   MOCK_FEED_TYPES,
   FeedingTime,
 } from "./types";
 import type { FeedingSchedulePayload } from "@/lib/feeding-schedule-api";
 
 interface FeedingScheduleHeaderProps {
+  schedules?: FeedingSchedule[];
   onAddSchedule: (newSchedule: FeedingSchedulePayload) => void | Promise<void>;
 }
 
 export const FeedingScheduleHeader = ({
+  schedules = [],
   onAddSchedule,
 }: FeedingScheduleHeaderProps) => {
+  const { token } = useAuth();
   const [isOpen, setIsOpen] = React.useState(false);
-  // A real implementation would use a multi-select component library or build one on top of shadcn
-  const [selectedPonds, setSelectedPonds] = React.useState<string[]>([]);
+
+  // Dynamic Pond state
+  const [ponds, setPonds] = useState<Pond[]>([]);
+  const [loadingPonds, setLoadingPonds] = useState<boolean>(false);
+
+  // Filter state
+  const [filterPondId, setFilterPondId] = React.useState<string>("");
 
   // Form state for the dialog
   const [pondId, setPondId] = React.useState("");
@@ -77,6 +87,40 @@ export const FeedingScheduleHeader = ({
 
   const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+  // Filter top dropdown ponds to only those that match existing schedules
+  const pondsWithSchedules = useMemo(() => {
+    const scheduledPondNames = new Set(schedules.map((s) => s.pondName));
+    return ponds.filter((pond) => scheduledPondNames.has(pond.name));
+  }, [ponds, schedules]);
+
+  // Fetch ponds dynamically on component mount / token availability
+  useEffect(() => {
+    const fetchPonds = async () => {
+      if (!token) return;
+      setLoadingPonds(true);
+      try {
+        const pondList = await getPonds(token);
+        setPonds(pondList);
+      } catch (err: any) {
+        toast.error(err.message || "Failed to load ponds list.");
+      } finally {
+        setLoadingPonds(false);
+      }
+    };
+
+    fetchPonds();
+  }, [token]);
+
+  // Handle pond selection in the modal to automatically pre-fill species
+  const handlePondSelect = (selectedId: string | null) => {
+    if (!selectedId) return;
+    setPondId(selectedId);
+    const selectedPond = ponds.find((p) => String(p.id) === String(selectedId));
+    if (selectedPond && selectedPond.currentStock?.species) {
+      setSpecies(selectedPond.currentStock.species);
+    }
+  };
+
   const handleDayChange = (dayIndex: number, checked: boolean) => {
     if (checked) {
       setDaysOfWeek((prev) => [...prev, dayIndex].sort());
@@ -100,13 +144,12 @@ export const FeedingScheduleHeader = ({
   };
 
   const handleSubmit = async () => {
-    // Basic validation
     if (!pondId || !feedTypeId || !startDate) {
       toast.error("Please fill in all required fields.");
       return;
     }
 
-    const pond = MOCK_PONDS.find((p) => p.id === pondId);
+    const pond = ponds.find((p) => String(p.id) === String(pondId));
     const feedType = MOCK_FEED_TYPES.find((f) => f.id === feedTypeId);
 
     if (!pond || !feedType) {
@@ -130,16 +173,17 @@ export const FeedingScheduleHeader = ({
       note: notes || "",
     };
 
-    // TODO: API call to create schedule
     try {
       await onAddSchedule(newSchedule);
       toast.success("New feeding schedule has been added successfully.");
-      // Reset form
       setPondId("");
       setFeedTypeId("");
       setSpecies("Tilapia");
       setFrequency(ScheduleFrequency.TwiceDaily);
-      setFeedingTimes([{ time: "08:00", quantity: 0, unit: "kg" }, { time: "16:00", quantity: 0, unit: "kg" }]);
+      setFeedingTimes([
+        { time: "08:00", quantity: 0, unit: "kg" },
+        { time: "16:00", quantity: 0, unit: "kg" },
+      ]);
       setDaysOfWeek([0, 1, 2, 3, 4, 5, 6]);
       setStartDate(new Date());
       setEndDate(undefined);
@@ -147,7 +191,7 @@ export const FeedingScheduleHeader = ({
       setIsActive(true);
       setIsOpen(false);
     } catch (err) {
-      // onAddSchedule will have shown a toast if it failed; keep the modal open so user can fix.
+      // Handled by caller
     }
   };
 
@@ -160,23 +204,24 @@ export const FeedingScheduleHeader = ({
         </p>
       </div>
       <div className="flex items-center space-x-2">
-        {/* This would be a multi-select component in a real app */}
-        <Select>
+        {/* Top-level Pond Filter - Shows ONLY ponds with schedules */}
+        <Select value={filterPondId} onValueChange={(value) => setFilterPondId(value || "")}>
           <SelectTrigger className="w-64 h-11 rounded-sm">
-            <SelectValue placeholder="Filter by Pond/Batch..." />
+            <SelectValue placeholder={loadingPonds ? "Loading ponds..." : "Filter by Pond/Batch..."} />
           </SelectTrigger>
           <SelectContent>
-            {MOCK_PONDS.map((pond) => (
-              <SelectItem key={pond.id} value={pond.id}>
+            {pondsWithSchedules.map((pond) => (
+              <SelectItem key={pond.id} value={String(pond.id)}>
                 {pond.name}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
+
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogTrigger>
+          <DialogTrigger asChild>
             <Button>
-              <PlusCircle className="mr-2 h-11 w-4" /> Add New Schedule
+              <PlusCircle className="mr-2 h-4 w-4" /> Add New Schedule
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-xl p-6">
@@ -186,20 +231,20 @@ export const FeedingScheduleHeader = ({
                 Fill out the details to create a new schedule.
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
-              {/* Pond selection */}
+            <div className="gap-4 flex flex-col py-4 max-h-[70vh] overflow-y-auto pr-4">
+              {/* Dynamic Pond Selection - Retains ALL ponds so new schedules can be created */}
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="pond" className="text-right">
                   Pond/Batch
                 </Label>
-                <Select onValueChange={(value: any) => setPondId(value ?? "") }>
+                <Select value={pondId} onValueChange={handlePondSelect}>
                   <SelectTrigger className="col-span-3 rounded-sm h-11">
-                    <SelectValue placeholder="Select a pond" />
+                    <SelectValue placeholder={loadingPonds ? "Loading ponds..." : "Select a pond"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {MOCK_PONDS.map((pond) => (
-                      <SelectItem key={pond.id} value={pond.id}>
-                        {pond.name}
+                    {ponds.map((pond) => (
+                      <SelectItem key={pond.id} value={String(pond.id)}>
+                        {pond.name} {pond.currentStock?.species ? `(${pond.currentStock.species})` : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -219,7 +264,7 @@ export const FeedingScheduleHeader = ({
 
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Feed Type</Label>
-                <Select onValueChange={(value: any) => setFeedTypeId(value ?? "") }>
+                <Select value={feedTypeId} onValueChange={(value: any) => setFeedTypeId(value ?? "")}>
                   <SelectTrigger className="col-span-3 rounded-sm h-11">
                     <SelectValue placeholder="Select feed type" />
                   </SelectTrigger>
@@ -236,7 +281,7 @@ export const FeedingScheduleHeader = ({
               {/* Frequency */}
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Frequency</Label>
-                <Select onValueChange={(value: any) => setFrequency(value as ScheduleFrequency)}>
+                <Select value={frequency} onValueChange={(value: any) => setFrequency(value as ScheduleFrequency)}>
                   <SelectTrigger className="col-span-3 rounded-sm h-11">
                     <SelectValue placeholder={frequency} />
                   </SelectTrigger>
@@ -258,21 +303,24 @@ export const FeedingScheduleHeader = ({
                     <div key={idx} className="grid grid-cols-12 gap-2 items-center">
                       <input
                         type="time"
-                        value={ft.time || ''}
-                        onChange={(e) => handleTimeChange(idx, 'time', e.target.value)}
-                        className="col-span-4 h-10 px-2 rounded border border-gray-300 bg-transparent"
+                        value={ft.time || ""}
+                        onChange={(e) => handleTimeChange(idx, "time", e.target.value)}
+                        className="col-span-4 h-10 px-2 rounded border border-gray-300 bg-transparent text-sm"
                       />
                       <input
                         type="number"
                         step="0.1"
                         value={ft.quantity ?? 0}
-                        onChange={(e) => handleTimeChange(idx, 'quantity', Number(e.target.value))}
-                        className="col-span-4 h-10 px-2 rounded border border-gray-300 bg-transparent"
+                        onChange={(e) => handleTimeChange(idx, "quantity", Number(e.target.value))}
+                        className="col-span-4 h-10 px-2 rounded border border-gray-300 bg-transparent text-sm"
                         placeholder="Quantity"
                       />
-                      <Select onValueChange={(v: any) => handleTimeChange(idx, 'unit', v)}>
+                      <Select
+                        value={ft.unit || "kg"}
+                        onValueChange={(v: any) => handleTimeChange(idx, "unit", v)}
+                      >
                         <SelectTrigger className="col-span-2 h-10 rounded">
-                          <SelectValue placeholder={ft.unit || 'kg'} />
+                          <SelectValue placeholder={ft.unit || "kg"} />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="kg">kg</SelectItem>

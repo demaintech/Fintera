@@ -95,9 +95,9 @@ export const navSections = [
         icon: Boxes,
         children: [
           { href: "/admin/inventory", label: "Stock Overview" },
-          { href: "/admin/inventory/equipment", label: "Equipment" },
-          { href: "/admin/inventory/chemicals", label: "Chemicals/Treatments" },
-          { href: "/admin/inventory/suppliers", label: "Suppliers" },
+          // { href: "/admin/inventory/equipment", label: "Equipment" },
+          // { href: "/admin/inventory/chemicals", label: "Chemicals/Treatments" },
+          // { href: "/admin/inventory/suppliers", label: "Suppliers" },
         ],
       },
       {
@@ -114,7 +114,7 @@ export const navSections = [
         label: "Reports",
         icon: ChartColumnIncreasing,
         children: [
-          { href: "/admin/reports", label: "Stock Reports" },
+          // { href: "/admin/reports", label: "Stock Reports" },
           { href: "/admin/reports/finance", label: "Financial Reports" },
           { href: "/admin/reports/growth", label: "Growth Report" },
           // { href: "/admin/inventory/feeds", label: "Export Data" },

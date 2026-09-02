@@ -110,7 +110,7 @@ const FeedingSchedulePage = () => {
 
   if (error && schedules.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-red-500 font-medium space-y-4">
+      <div className="flex flex-col items-center justify-center min-h-100 text-red-500 font-medium space-y-4">
         <p>{error}</p>
         <button
           onClick={fetchSchedulesData}
@@ -199,7 +199,7 @@ const FeedingSchedulePage = () => {
                             key={schedule.id}
                             className="hover:bg-gray-50/50 dark:hover:bg-slate-800/40"
                           >
-                            <td className="px-4 py-3 font-medium text-gray-900 dark:text-slate-100">
+                            <td className="px-4 py-3  font-medium text-gray-900 dark:text-slate-100">
                               {isEditing ? (
                                 <input
                                   type="text"

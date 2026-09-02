@@ -1,9 +1,10 @@
-'use client';
+'use client'
 
-import React, { useState } from 'react';
-import { FileDown, Printer, Calendar as CalendarIcon, TrendingUp, Zap, Target, Activity } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { FileDown, Printer, Calendar as CalendarIcon, Fish, Weight, RefreshCw, AlertCircle } from 'lucide-react';
+import { getGrowthRecords, GrowthRecord } from '@/lib/growth-api';
 
-// --- Reusable UI Components ---
+// --- Reusable UI Elements ---
 
 const Card = ({ children, className }: { children: React.ReactNode, className?: string }) => (
   <div className={`bg-white dark:bg-slate-900 border border-gray-200/80 dark:border-slate-800 rounded-xl shadow-sm ${className}`}>{children}</div>
@@ -22,175 +23,274 @@ const CardContent = ({ children, className }: { children: React.ReactNode, class
 );
 
 const Button = ({ children, variant = 'default', className, ...props }: { children: React.ReactNode, variant?: 'default' | 'outline', className?: string } & React.ButtonHTMLAttributes<HTMLButtonElement>) => {
-    const baseStyle = "inline-flex items-center justify-center rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-600 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background";
-    const variantStyles = {
-        default: "bg-slate-900 text-white hover:bg-slate-900/90 dark:bg-slate-50 dark:text-slate-900 dark:hover:bg-slate-50/90",
-        outline: "border border-gray-300 dark:border-slate-700 bg-transparent hover:bg-gray-100/50 dark:hover:bg-slate-800/50",
-    };
-    return <button className={`${baseStyle} ${variantStyles[variant]} ${className}`} {...props}>{children}</button>;
+  const baseStyle = "inline-flex items-center justify-center rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-600 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background";
+  const variantStyles = {
+    default: "bg-slate-900 text-white hover:bg-slate-900/90 dark:bg-slate-50 dark:text-slate-900 dark:hover:bg-slate-50/90",
+    outline: "border border-gray-300 dark:border-slate-700 bg-transparent hover:bg-gray-100/50 dark:hover:bg-slate-800/50",
+  };
+  return <button className={`${baseStyle} ${variantStyles[variant]} ${className}`} {...props}>{children}</button>;
 };
 
 const Label = ({ children, ...props }: { children: React.ReactNode } & React.LabelHTMLAttributes<HTMLLabelElement>) => (
-    <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5" {...props}>{children}</label>
+  <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5" {...props}>{children}</label>
 );
 
 const Input = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
-    <input
-        className="block w-full px-3 py-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-        {...props}
-    />
+  <input
+    className="block w-full px-3 py-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-slate-900 sm:text-sm text-slate-900 dark:text-slate-100"
+    {...props}
+  />
 );
 
-const StatCard = ({ title, value, icon: Icon, change, changeType }: { title: string, value: string, icon: React.ElementType, change?: string, changeType?: 'increase' | 'decrease' }) => (
-    <Card>
-        <CardContent className="flex items-center justify-between">
-            <div>
-                <p className="text-sm font-medium text-gray-500 dark:text-slate-400">{title}</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-slate-100">{value}</p>
-                {change && (
-                    <p className={`text-xs ${changeType === 'increase' ? 'text-green-600' : 'text-red-600'}`}>
-                        {change} vs. previous cycle
-                    </p>
-                )}
-            </div>
-            <div className="bg-slate-100 dark:bg-slate-800 rounded-full p-3">
-                <Icon className="w-6 h-6 text-slate-700 dark:text-slate-300" />
-            </div>
-        </CardContent>
-    </Card>
+const StatCard = ({ title, value, icon: Icon }: { title: string, value: string, icon: React.ElementType }) => (
+  <Card>
+    <CardContent className="flex items-center justify-between p-4">
+      <div>
+        <p className="text-xs font-medium text-gray-500 dark:text-slate-400">{title}</p>
+        <p className="text-xl font-bold text-gray-900 dark:text-slate-100 mt-1">{value}</p>
+      </div>
+      <div className="bg-slate-100 dark:bg-slate-800 rounded-full p-2.5">
+        <Icon className="w-5 h-5 text-slate-700 dark:text-slate-300" />
+      </div>
+    </CardContent>
+  </Card>
 );
 
-// --- Mock Data ---
-const growthReportData = [
-    { pond: 'Breeding Pond A', species: 'Catfish', period: 90, initialAvgWeight: 0.1, finalAvgWeight: 1.0, biomassGain: 405.0, feedConsumed: 650.0, adg: 10.0, fcr: 1.6, sgr: 2.56 },
-    { pond: 'Lily Pad Pond', species: 'Tilapia', period: 120, initialAvgWeight: 0.05, finalAvgWeight: 0.6, biomassGain: 440.0, feedConsumed: 750.0, adg: 4.58, fcr: 1.7, sgr: 2.07 },
-    { pond: 'Main Koi Pond', species: 'Koi Carp', period: 180, initialAvgWeight: 0.2, finalAvgWeight: 2.5, biomassGain: 345.0, feedConsumed: 690.0, adg: 12.78, fcr: 2.0, sgr: 1.41 },
-    { pond: 'Breeding Pond B', species: 'Koi Carp', period: 180, initialAvgWeight: 0.2, finalAvgWeight: 1.8, biomassGain: 80.0, feedConsumed: 180.0, adg: 8.89, fcr: 2.25, sgr: 1.22 },
-];
+export default function GrowthReportsPage() {
+  const [records, setRecords] = useState<GrowthRecord[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-const GrowthReportPage = () => {
+  // Filters
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0]);
   const [reportGenerated, setReportGenerated] = useState(false);
-  const [dateFrom, setDateFrom] = useState('2023-08-01');
-  const [dateTo, setDateTo] = useState('2023-10-31');
 
-  const totalBiomassGain = growthReportData.reduce((sum, item) => sum + item.biomassGain, 0);
-  const avgFCR = growthReportData.reduce((sum, item) => sum + item.fcr, 0) / growthReportData.length;
-  const avgADG = growthReportData.reduce((sum, item) => sum + item.adg, 0) / growthReportData.length;
-  const avgSGR = growthReportData.reduce((sum, item) => sum + item.sgr, 0) / growthReportData.length;
+  // Fetch live growth data from backend
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const data = await getGrowthRecords(token);
+      setRecords(data);
+      setReportGenerated(true);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load growth records');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // Filter records by date range
+  const filteredRecords = useMemo(() => {
+    return records.filter((item) => {
+      if (!item.sampleDate) return true;
+      const itemDate = new Date(item.sampleDate).getTime();
+      const from = dateFrom ? new Date(dateFrom).getTime() : -Infinity;
+      const to = dateTo ? new Date(dateTo).getTime() : Infinity;
+      return itemDate >= from && itemDate <= to;
+    });
+  }, [records, dateFrom, dateTo]);
+
+  // Metric aggregates calculation
+  const metrics = useMemo(() => {
+    const totalSamples = filteredRecords.reduce((acc, r) => acc + r.sampleCount, 0);
+    const totalFeedKg = filteredRecords.reduce((acc, r) => acc + r.totalFeedUsedKg, 0);
+    const totalBiomassKg = filteredRecords.reduce((acc, r) => acc + (r.sampleCount * r.avgWeightGrams) / 1000, 0);
+    const avgFcr = filteredRecords.length
+      ? filteredRecords.reduce((acc, r) => acc + r.fcr, 0) / filteredRecords.length
+      : 0;
+
+    return { totalSamples, totalFeedKg, totalBiomassKg, avgFcr };
+  }, [filteredRecords]);
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleExportPDF = () => {
+    window.print();
+  };
 
   return (
-    <main className="flex-1 p-4 sm:p-6 md:p-8 bg-gray-50/50 dark:bg-slate-950">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-slate-50">Growth Reports</h1>
-        <p className="text-gray-600 dark:text-slate-400 mt-1">Track and analyze fish growth performance over time.</p>
+    <main className="flex-1 p-4 sm:p-6 md:p-8 bg-gray-50/50 dark:bg-slate-950 min-h-screen">
+      {/* Page Header */}
+      <header className="mb-6 print:hidden">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-slate-50">Growth Reports & Statement</h1>
+        <p className="text-gray-600 dark:text-slate-400 mt-1">Filter live sampling logs, review operational trends, and export print-ready statements.</p>
       </header>
 
+      {/* Global CSS for seamless print view */}
+      <style jsx global>{`
+        @media print {
+          body {
+            background: #fff !important;
+            color: #000 !important;
+          }
+          .print\\:hidden {
+            display: none !important;
+          }
+          .print\\:shadow-none {
+            box-shadow: none !important;
+            border: none !important;
+          }
+        }
+      `}</style>
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Report Generation Form */}
-        <div className="lg:col-span-4 xl:col-span-3">
+        {/* Controls Sidebar */}
+        <div className="lg:col-span-4 xl:col-span-3 print:hidden">
           <Card>
             <CardHeader>
-              <CardTitle>Report Options</CardTitle>
+              <CardTitle>Filter Parameters</CardTitle>
             </CardHeader>
             <CardContent>
               <form onSubmit={(e) => { e.preventDefault(); setReportGenerated(true); }} className="space-y-4">
                 <div>
-                  <Label htmlFor="date-from">From</Label>
-                  <div className="relative">
-                    <Input type="date" id="date-from" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-                    <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50 dark:text-slate-400" />
-                  </div>
+                  <Label htmlFor="date-from">From Date</Label>
+                  <Input
+                    type="date"
+                    id="date-from"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                  />
                 </div>
                 <div>
-                  <Label htmlFor="date-to">To</Label>
-                   <div className="relative">
-                    <Input type="date" id="date-to" value={dateTo} onChange={(e) => setDateTo(e.target.value)} min={dateFrom} />
-                    <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50 dark:text-slate-400" />
-                  </div>
+                  <Label htmlFor="date-to">To Date</Label>
+                  <Input
+                    type="date"
+                    id="date-to"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                  />
                 </div>
-                <Button type="submit" className="w-full h-10 mt-2">
-                  Generate Report
+
+                <Button type="submit" disabled={loading} className="w-full h-10 gap-2">
+                  {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <CalendarIcon className="h-4 w-4" />}
+                  <span>Generate Report</span>
                 </Button>
               </form>
             </CardContent>
           </Card>
         </div>
 
-        {/* Report Preview */}
+        {/* Growth Statement View */}
         <div className="lg:col-span-8 xl:col-span-9">
+          {error && (
+            <Card className="mb-6 bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800 print:hidden">
+              <CardContent className="flex items-center gap-3 p-4">
+                <AlertCircle className="h-5 w-5 text-red-600 shrink-0" />
+                <p className="text-sm">{error}</p>
+              </CardContent>
+            </Card>
+          )}
+
           {reportGenerated ? (
             <div className="space-y-6">
-              {/* Stat Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
-                <StatCard title="Total Biomass Gain" value={`${totalBiomassGain.toFixed(1)} kg`} icon={TrendingUp} change="+45 kg" changeType="increase" />
-                <StatCard title="Average FCR" value={avgFCR.toFixed(2)} icon={Target} change="-0.1" changeType="increase" />
-                <StatCard title="Average ADG" value={`${avgADG.toFixed(2)} g/day`} icon={Zap} change="+0.5 g/day" changeType="increase" />
-                <StatCard title="Average SGR" value={`${avgSGR.toFixed(2)} %/day`} icon={Activity} change="+0.2%" changeType="increase" />
+              {/* Operational Stat Overview */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 print:hidden">
+                <StatCard title="Total Biomass" value={`${metrics.totalBiomassKg.toFixed(1)} kg`} icon={Weight} />
+                <StatCard title="Total Feed Used" value={`${metrics.totalFeedKg.toFixed(1)} kg`} icon={Fish} />
+                <StatCard title="Total Sample Count" value={metrics.totalSamples.toLocaleString()} icon={Fish} />
+                <StatCard title="Average FCR" value={metrics.avgFcr.toFixed(2)} icon={Weight} />
               </div>
 
-              <Card>
+              {/* Clean Statement Document Preview */}
+              <Card className="print:shadow-none bg-white text-slate-900 border-gray-200">
                 <CardHeader>
-                  <div>
-                    <CardTitle>Growth Performance Summary</CardTitle>
-                    <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
-                      {new Date(dateFrom).toLocaleDateString()} - {new Date(dateTo).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                      <Button variant="outline" className="h-9 px-3">
-                        <Printer className="w-4 h-4 mr-2" />
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full gap-4">
+                    <div>
+                      <h2 className="text-2xl font-bold uppercase tracking-wider text-slate-900">Growth Performance Statement</h2>
+                      <p className="text-sm text-slate-500 mt-1">
+                        Statement Period: {dateFrom ? dateFrom : 'Beginning'} to {dateTo ? dateTo : 'Present'}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 print:hidden">
+                      <Button variant="outline" className="h-9 px-3 gap-2" onClick={handlePrint}>
+                        <Printer className="w-4 h-4" />
                         Print
                       </Button>
-                      <Button variant="default" className="h-9 px-3">
-                        <FileDown className="w-4 h-4 mr-2" />
-                        Export Report
+                      <Button variant="default" className="h-9 px-3 gap-2" onClick={handleExportPDF}>
+                        <FileDown className="w-4 h-4" />
+                        Export PDF
                       </Button>
                     </div>
+                  </div>
                 </CardHeader>
+
                 <CardContent>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left text-gray-600 dark:text-slate-300">
-                      <thead className="text-xs text-gray-700 dark:text-slate-400 uppercase bg-gray-100/80 dark:bg-slate-800/50">
+                    <table className="w-full text-sm text-left text-slate-700">
+                      <thead className="text-xs text-slate-800 uppercase bg-slate-100 border-b border-slate-200">
                         <tr>
-                          <th scope="col" className="px-4 py-3 rounded-l-lg">Pond</th>
-                          <th scope="col" className="px-4 py-3">Species</th>
-                          <th scope="col" className="px-4 py-3 text-right">Period (Days)</th>
-                          <th scope="col" className="px-4 py-3 text-right">Biomass Gain (kg)</th>
-                          <th scope="col" className="px-4 py-3 text-right">ADG (g/day)</th>
-                          <th scope="col" className="px-4 py-3 text-right">FCR</th>
-                          <th scope="col" className="px-4 py-3 text-right rounded-r-lg">SGR (%/day)</th>
+                          <th className="px-4 py-3">Sample Date</th>
+                          <th className="px-4 py-3">Pond Name</th>
+                          <th className="px-4 py-3">Species</th>
+                          <th className="px-4 py-3 text-right">Sample Qty</th>
+                          <th className="px-4 py-3 text-right">Avg Weight (g)</th>
+                          <th className="px-4 py-3 text-right">Feed Used (kg)</th>
+                          <th className="px-4 py-3 text-right">FCR</th>
+                          <th className="px-4 py-3">Recorded By</th>
                         </tr>
                       </thead>
-                      <tbody>
-                        {growthReportData.map((row, i) => (
-                          <tr key={`${row.pond}-${i}`} className="border-b dark:border-slate-800 hover:bg-gray-50/50 dark:hover:bg-slate-800/50">
-                            <td className="px-4 py-3 font-medium text-gray-900 dark:text-slate-100">{row.pond}</td>
-                            <td className="px-4 py-3">{row.species}</td>
-                            <td className="px-4 py-3 text-right">{row.period}</td>
-                            <td className="px-4 py-3 text-right font-medium text-green-600">{`+${row.biomassGain.toFixed(1)}`}</td>
-                            <td className="px-4 py-3 text-right">{row.adg.toFixed(2)}</td>
-                            <td className="px-4 py-3 text-right">{row.fcr.toFixed(2)}</td>
-                            <td className="px-4 py-3 text-right">{row.sgr.toFixed(2)}</td>
+                      <tbody className="divide-y divide-slate-200">
+                        {filteredRecords.length === 0 ? (
+                          <tr>
+                            <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
+                              No growth records match the designated date filter.
+                            </td>
                           </tr>
-                        ))}
+                        ) : (
+                          filteredRecords.map((row) => (
+                            <tr key={row.id} className="hover:bg-slate-50">
+                              <td className="px-4 py-3 font-medium text-slate-900">{row.sampleDate || '-'}</td>
+                              <td className="px-4 py-3">{row.pondName}</td>
+                              <td className="px-4 py-3">{row.species}</td>
+                              <td className="px-4 py-3 text-right">{row.sampleCount.toLocaleString()}</td>
+                              <td className="px-4 py-3 text-right">{row.avgWeightGrams.toFixed(1)}</td>
+                              <td className="px-4 py-3 text-right">{row.totalFeedUsedKg.toFixed(1)}</td>
+                              <td className="px-4 py-3 text-right font-semibold">{row.fcr.toFixed(2)}</td>
+                              <td className="px-4 py-3 text-slate-500">{row.recordedBy}</td>
+                            </tr>
+                          ))
+                        )}
                       </tbody>
+                      <tfoot className="font-semibold text-slate-900 bg-slate-100 border-t border-slate-200">
+                        <tr>
+                          <td colSpan={3} className="px-4 py-3 text-right">Grand Total / Averages:</td>
+                          <td className="px-4 py-3 text-right">{metrics.totalSamples.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-right">-</td>
+                          <td className="px-4 py-3 text-right">{metrics.totalFeedKg.toFixed(1)} kg</td>
+                          <td className="px-4 py-3 text-right">{metrics.avgFcr.toFixed(2)}</td>
+                          <td className="px-4 py-3"></td>
+                        </tr>
+                      </tfoot>
                     </table>
+                  </div>
+
+                  {/* Document Footer */}
+                  <div className="mt-12 pt-6 border-t border-slate-200 text-xs text-slate-500 flex justify-between items-center">
+                    <p>Fintera Aquaculture Operations System</p>
+                    <p>Generated: {new Date().toLocaleDateString()}</p>
                   </div>
                 </CardContent>
               </Card>
             </div>
           ) : (
-              <Card className="flex flex-col items-center justify-center h-[calc(100vh-12rem)] text-center">
-                  <div className="p-6">
-                  <p className="text-lg font-medium text-gray-700 dark:text-slate-300">Select a date range and generate a report.</p>
-                  <p className="text-gray-500 dark:text-slate-400">Your growth performance summary will appear here.</p>
-                </div>
-              </Card>
+            <Card className="flex flex-col items-center justify-center h-64 text-center">
+              <div className="p-6">
+                <p className="text-lg font-medium text-gray-700 dark:text-slate-300">Select date parameters and click Generate Report.</p>
+              </div>
+            </Card>
           )}
         </div>
       </div>
     </main>
   );
-};
-
-export default GrowthReportPage;
+}
